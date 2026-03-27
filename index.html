@@ -1,0 +1,1248 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>ИНСАЙТ</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f5f6fa;
+    --surface: #ffffff;
+    --surface2: #eef0f7;
+    --accent: #3d5af1;
+    --accent2: #2541b2;
+    --green: #0abf7e;
+    --red: #f05454;
+    --text: #1a1a2e;
+    --text2: #7b82a0;
+    --border: rgba(61,90,241,0.12);
+    --shadow: 0 2px 16px rgba(61,90,241,0.08);
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color: transparent; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Manrope', sans-serif;
+    min-height: 100vh;
+    max-width: 430px;
+    margin: 0 auto;
+    overflow-x: hidden;
+  }
+
+  /* HEADER */
+  .header {
+    padding: 16px 20px 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: rgba(245,246,250,0.95);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .logo {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 28px;
+    letter-spacing: 3px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .stats-pill {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 6px 12px;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--accent2);
+  }
+
+  .stats-pill span { color: var(--text2); font-weight: 500; }
+
+  /* USER CARD */
+  .user-card {
+    margin: 16px 20px;
+    background: linear-gradient(135deg, rgba(61,90,241,0.08), rgba(10,191,126,0.05));
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 18px 20px;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 12px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .user-card::before {
+    content: '';
+    position: absolute;
+    top: -40px; right: -40px;
+    width: 120px; height: 120px;
+    background: radial-gradient(circle, rgba(61,90,241,0.12), transparent 70%);
+    pointer-events: none;
+  }
+
+  .stat-item { text-align: center; }
+  .stat-value {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 26px;
+    letter-spacing: 1px;
+    color: var(--accent2);
+    line-height: 1;
+  }
+  .stat-value.green { color: var(--green); }
+  .stat-label {
+    font-size: 10px;
+    color: var(--text2);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-top: 4px;
+  }
+
+  /* TOPICS */
+  .section-title {
+    padding: 0 20px 10px;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: var(--text2);
+    font-weight: 700;
+  }
+
+  .topics-scroll {
+    display: flex;
+    gap: 8px;
+    padding: 0 20px 16px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .topics-scroll::-webkit-scrollbar { display: none; }
+
+  .topic-chip {
+    flex-shrink: 0;
+    padding: 7px 14px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: 1.5px solid transparent;
+    white-space: nowrap;
+  }
+
+  .topic-chip.active {
+    background: var(--accent);
+    color: white;
+    border-color: var(--accent);
+  }
+
+  .topic-chip:not(.active) {
+    background: var(--surface2);
+    color: var(--text2);
+    border-color: var(--border);
+  }
+
+  .topic-chip:active { transform: scale(0.95); }
+
+  /* QUESTION CARDS */
+  .feed { padding: 0 20px; display: flex; flex-direction: column; gap: 14px; }
+
+  .q-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 18px;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+    box-shadow: var(--shadow);
+  }
+
+  .q-card:active { transform: scale(0.98); }
+
+  .q-card.hot::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(61,90,241,0.04), transparent);
+    pointer-events: none;
+  }
+
+  .q-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+  }
+
+  .q-topic {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 6px;
+  }
+
+  .q-topic.sport { background: rgba(0,206,201,0.15); color: var(--green); }
+  .q-topic.economy { background: rgba(253,203,110,0.15); color: #fdcb6e; }
+  .q-topic.culture { background: rgba(253,121,168,0.15); color: var(--red); }
+  .q-topic.tech { background: rgba(162,155,254,0.15); color: var(--accent2); }
+  .q-topic.politics { background: rgba(225,112,85,0.15); color: #e17055; }
+
+  .q-badge {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    color: var(--text2);
+  }
+
+  .fire { font-size: 14px; }
+
+  .q-text {
+    font-size: 16px;
+    font-weight: 700;
+    line-height: 1.4;
+    margin-bottom: 14px;
+    color: var(--text);
+  }
+
+  /* VOTE BAR */
+  .vote-section { }
+
+  .vote-bar-wrap {
+    background: var(--surface2);
+    border-radius: 10px;
+    height: 6px;
+    margin-bottom: 10px;
+    overflow: hidden;
+  }
+
+  .vote-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    border-radius: 10px;
+    transition: width 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  .vote-labels {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 12px;
+  }
+
+  .vote-yes, .vote-no {
+    font-size: 12px;
+    font-weight: 700;
+  }
+  .vote-yes { color: var(--green); }
+  .vote-no { color: var(--red); }
+
+  .vote-buttons {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .btn-yes, .btn-no {
+    padding: 11px;
+    border-radius: 12px;
+    border: none;
+    font-family: 'Manrope', sans-serif;
+    font-size: 14px;
+    font-weight: 800;
+    cursor: pointer;
+    transition: all 0.15s;
+    letter-spacing: 0.5px;
+  }
+
+  .btn-yes {
+    background: rgba(0,206,201,0.12);
+    color: var(--green);
+    border: 1.5px solid rgba(0,206,201,0.3);
+  }
+
+  .btn-no {
+    background: rgba(253,121,168,0.12);
+    color: var(--red);
+    border: 1.5px solid rgba(253,121,168,0.3);
+  }
+
+  .btn-yes:active { background: rgba(0,206,201,0.25); transform: scale(0.97); }
+  .btn-no:active { background: rgba(253,121,168,0.25); transform: scale(0.97); }
+
+  /* voted state */
+  .q-card.voted .vote-buttons { display: none; }
+  .voted-result {
+    display: none;
+    text-align: center;
+    padding: 8px;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 700;
+  }
+  .q-card.voted .voted-result { display: block; }
+  .voted-result.correct { background: rgba(0,206,201,0.1); color: var(--green); }
+  .voted-result.pending { background: rgba(108,92,231,0.1); color: var(--accent2); }
+
+  .q-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+  }
+
+  .q-voters {
+    font-size: 11px;
+    color: var(--text2);
+  }
+
+  .q-deadline {
+    font-size: 11px;
+    color: var(--text2);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  /* ADD QUESTION BTN */
+  .add-btn {
+    margin: 20px;
+    padding: 16px;
+    background: linear-gradient(135deg, var(--accent), #8b5cf6);
+    border: none;
+    border-radius: 16px;
+    color: white;
+    font-family: 'Manrope', sans-serif;
+    font-size: 15px;
+    font-weight: 800;
+    width: calc(100% - 40px);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: all 0.2s;
+    letter-spacing: 0.5px;
+    box-shadow: 0 8px 24px rgba(108,92,231,0.3);
+  }
+
+  .add-btn:active { transform: scale(0.98); box-shadow: 0 4px 12px rgba(108,92,231,0.2); }
+
+  /* BOTTOM NAV */
+  .bottom-nav {
+    position: fixed;
+    bottom: 0; left: 50%;
+    transform: translateX(-50%);
+    width: 100%;
+    max-width: 430px;
+    background: rgba(245,246,250,0.97);
+    backdrop-filter: blur(20px);
+    border-top: 1px solid var(--border);
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    padding: 8px 0 20px;
+  }
+
+  .nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .nav-icon { font-size: 22px; }
+  .nav-label { font-size: 10px; font-weight: 600; color: var(--text2); letter-spacing: 0.5px; }
+  .nav-item.active .nav-label { color: var(--accent2); }
+  .nav-item.active .nav-icon { filter: drop-shadow(0 0 6px var(--accent2)); }
+
+  /* RATING SCREEN */
+  .screen { display: none; }
+  .screen.active { display: block; }
+
+  .rating-list { padding: 0 20px 100px; }
+
+  .rating-item {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 16px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    margin-bottom: 10px;
+    transition: all 0.2s;
+  }
+
+  .rating-item.me {
+    border-color: var(--accent);
+    background: rgba(61,90,241,0.06);
+  }
+
+  .rank {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 22px;
+    color: var(--text2);
+    width: 32px;
+    text-align: center;
+  }
+
+  .rank.gold { color: #fdcb6e; }
+  .rank.silver { color: #b2bec3; }
+  .rank.bronze { color: #e17055; }
+
+  .avatar {
+    width: 42px; height: 42px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    flex-shrink: 0;
+  }
+
+  .rating-info { flex: 1; }
+  .rating-name { font-size: 14px; font-weight: 700; }
+  .rating-stats { font-size: 11px; color: var(--text2); margin-top: 2px; }
+
+  .rating-points {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 20px;
+    color: var(--accent2);
+    letter-spacing: 1px;
+  }
+
+  /* PROFILE SCREEN */
+  .profile-hero {
+    margin: 20px;
+    background: linear-gradient(135deg, rgba(61,90,241,0.08), rgba(10,191,126,0.05));
+    border: 1px solid var(--border);
+    border-radius: 24px;
+    padding: 24px;
+    text-align: center;
+  }
+
+  .profile-avatar {
+    width: 72px; height: 72px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent), var(--green));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 32px;
+    margin: 0 auto 12px;
+  }
+
+  .profile-name { font-size: 20px; font-weight: 800; margin-bottom: 4px; }
+  .profile-rank { font-size: 13px; color: var(--accent2); font-weight: 600; }
+
+  .profile-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin: 20px;
+  }
+
+  .profile-stat {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 16px 10px;
+    text-align: center;
+    box-shadow: var(--shadow);
+  }
+
+  .profile-stat-val {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 28px;
+    color: var(--accent2);
+  }
+
+  .profile-stat-label { font-size: 10px; color: var(--text2); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 4px; }
+
+  /* PUSH TOAST */
+  .toast {
+    position: fixed;
+    top: 70px;
+    left: 50%; transform: translateX(-50%);
+    background: #1a1a2e;
+    border: 1px solid var(--accent);
+    border-radius: 14px;
+    padding: 12px 20px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #ffffff;
+    z-index: 999;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+    opacity: 0;
+    transition: opacity 0.3s;
+    max-width: 320px;
+    text-align: center;
+  }
+
+  .toast.show { opacity: 1; }
+
+  /* ONBOARDING */
+  .onboarding {
+    position: fixed;
+    inset: 0;
+    z-index: 999;
+    background: #f5f6fa;
+
+  .ob-step { display: none; flex-direction: column; height: 100%; }
+  .ob-step.active { display: flex; }
+
+  .ob-progress {
+    display: flex;
+    gap: 6px;
+    padding: 20px 20px 0;
+  }
+
+  .ob-dot {
+    flex: 1;
+    height: 3px;
+    border-radius: 2px;
+    background: var(--surface2);
+    transition: background 0.3s;
+  }
+  .ob-dot.done { background: var(--accent2); }
+
+  /* STEP 1 — Welcome */
+  .ob-hero {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 30px;
+    text-align: center;
+  }
+
+  .ob-icon {
+    font-size: 80px;
+    margin-bottom: 24px;
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.08); }
+  }
+
+  .ob-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 48px;
+    letter-spacing: 4px;
+    background: linear-gradient(135deg, var(--accent2), var(--green));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 16px;
+    line-height: 1;
+  }
+
+  .ob-desc {
+    font-size: 17px;
+    line-height: 1.6;
+    color: var(--text2);
+    max-width: 280px;
+  }
+
+  .ob-desc strong { color: var(--text); }
+
+  .ob-features {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    margin: 24px 0;
+    text-align: left;
+    width: 100%;
+  }
+
+  .ob-feature {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 16px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    box-shadow: var(--shadow);
+  }
+
+  .ob-feature-icon { font-size: 24px; }
+  .ob-feature-text { font-size: 14px; font-weight: 600; }
+  .ob-feature-sub { font-size: 12px; color: var(--text2); margin-top: 2px; }
+
+  /* STEP 2 — Topics */
+  .ob-topics-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    padding: 0 20px;
+    flex: 1;
+  }
+
+  .ob-topic-card {
+    background: var(--surface);
+    border: 2px solid var(--border);
+    border-radius: 20px;
+    padding: 20px 16px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    text-align: center;
+  }
+
+  .ob-topic-card.selected {
+    border-color: var(--accent);
+    background: rgba(108,92,231,0.12);
+  }
+
+  .ob-topic-card:active { transform: scale(0.96); }
+
+  .ob-topic-emoji { font-size: 32px; }
+  .ob-topic-name { font-size: 14px; font-weight: 700; }
+  .ob-topic-count { font-size: 11px; color: var(--text2); }
+
+  .ob-hint { font-size: 12px; color: var(--text2); text-align: center; padding: 12px 20px 0; }
+
+  /* STEP 3 — First question */
+  .ob-question-wrap {
+    flex: 1;
+    padding: 0 20px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  .ob-q-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 24px;
+    padding: 24px;
+    box-shadow: var(--shadow);
+  }
+
+  .ob-q-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: var(--accent2);
+    font-weight: 700;
+    margin-bottom: 12px;
+  }
+
+  .ob-q-text {
+    font-size: 20px;
+    font-weight: 800;
+    line-height: 1.4;
+    margin-bottom: 20px;
+  }
+
+  .ob-vote-btns {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .ob-btn-yes, .ob-btn-no {
+    padding: 16px;
+    border-radius: 16px;
+    border: none;
+    font-family: 'Manrope', sans-serif;
+    font-size: 16px;
+    font-weight: 800;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .ob-btn-yes {
+    background: rgba(0,206,201,0.15);
+    color: var(--green);
+    border: 2px solid rgba(0,206,201,0.4);
+  }
+
+  .ob-btn-no {
+    background: rgba(253,121,168,0.15);
+    color: var(--red);
+    border: 2px solid rgba(253,121,168,0.4);
+  }
+
+  .ob-btn-yes:active { background: rgba(0,206,201,0.3); transform: scale(0.97); }
+  .ob-btn-no:active { background: rgba(253,121,168,0.3); transform: scale(0.97); }
+
+  .ob-voted {
+    display: none;
+    text-align: center;
+    padding: 20px;
+  }
+
+  .ob-voted-icon { font-size: 48px; margin-bottom: 12px; }
+  .ob-voted-text { font-size: 16px; font-weight: 700; color: var(--green); }
+  .ob-voted-sub { font-size: 13px; color: var(--text2); margin-top: 6px; }
+
+  /* BOTTOM BUTTON */
+  .ob-bottom {
+    padding: 20px;
+  }
+
+  .ob-next-btn {
+    width: 100%;
+    padding: 17px;
+    background: linear-gradient(135deg, var(--accent), #8b5cf6);
+    border: none;
+    border-radius: 16px;
+    color: white;
+    font-family: 'Manrope', sans-serif;
+    font-size: 16px;
+    font-weight: 800;
+    cursor: pointer;
+    transition: all 0.2s;
+    box-shadow: 0 8px 24px rgba(108,92,231,0.35);
+    letter-spacing: 0.5px;
+  }
+
+  .ob-next-btn:active { transform: scale(0.98); }
+  .ob-next-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+  .ob-skip {
+    text-align: center;
+    padding: 10px;
+    font-size: 13px;
+    color: var(--text2);
+    cursor: pointer;
+    text-decoration: underline;
+  }
+
+  @keyframes obFadeIn {
+    from { opacity: 0; transform: translateX(30px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+
+  .ob-step.active { animation: obFadeIn 0.35s ease both; }
+
+  /* ANIMATIONS */
+  @keyframes slideUp {
+    from { transform: translateY(20px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+
+  .q-card { animation: slideUp 0.4s ease both; }
+  .q-card:nth-child(1) { animation-delay: 0.05s; }
+  .q-card:nth-child(2) { animation-delay: 0.1s; }
+  .q-card:nth-child(3) { animation-delay: 0.15s; }
+  .q-card:nth-child(4) { animation-delay: 0.2s; }
+
+  .pb-100 { padding-bottom: 100px; }
+</style>
+</head>
+<body>
+
+<!-- ONBOARDING -->
+<div class="onboarding" id="onboarding">
+
+  <!-- STEP 1: Welcome -->
+  <div class="ob-step active" id="ob-step-1">
+    <div class="ob-progress">
+      <div class="ob-dot done" id="dot-1"></div>
+      <div class="ob-dot" id="dot-2"></div>
+      <div class="ob-dot" id="dot-3"></div>
+    </div>
+    <div class="ob-hero">
+      <div class="ob-icon">🔮</div>
+      <div class="ob-title">ИНСАЙТ</div>
+      <div class="ob-desc">Делай прогнозы на реальные события.<br><strong>Докажи что ты умнее всех.</strong></div>
+      <div class="ob-features">
+        <div class="ob-feature">
+          <div class="ob-feature-icon">🏆</div>
+          <div>
+            <div class="ob-feature-text">Глобальный рейтинг России</div>
+            <div class="ob-feature-sub">Соревнуйся с 31,000+ участниками</div>
+          </div>
+        </div>
+        <div class="ob-feature">
+          <div class="ob-feature-icon">⚡</div>
+          <div>
+            <div class="ob-feature-text">Прогнозы на любые события</div>
+            <div class="ob-feature-sub">Спорт, политика, экономика, культура</div>
+          </div>
+        </div>
+        <div class="ob-feature">
+          <div class="ob-feature-icon">➕</div>
+          <div>
+            <div class="ob-feature-text">Создавай свои вопросы</div>
+            <div class="ob-feature-sub">Другие голосуют — ты получаешь очки</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="ob-bottom">
+      <button class="ob-next-btn" onclick="goStep(2)">Начать →</button>
+    </div>
+  </div>
+
+  <!-- STEP 2: Choose Topics -->
+  <div class="ob-step" id="ob-step-2">
+    <div class="ob-progress">
+      <div class="ob-dot done"></div>
+      <div class="ob-dot done"></div>
+      <div class="ob-dot" id="dot-3b"></div>
+    </div>
+    <div style="padding: 24px 20px 16px;">
+      <div style="font-family:'Bebas Neue',sans-serif; font-size:36px; letter-spacing:2px; margin-bottom:8px;">Выбери темы</div>
+      <div style="font-size:14px; color:var(--text2);">Выбери хотя бы 2 темы которые тебе интересны</div>
+    </div>
+    <div class="ob-hint" id="ob-hint">Выбрано: <strong id="ob-selected-count">0</strong> из 6</div>
+    <div style="height:12px;"></div>
+    <div class="ob-topics-grid">
+      <div class="ob-topic-card" onclick="toggleTopic(this,'sport')">
+        <div class="ob-topic-emoji">⚽</div>
+        <div class="ob-topic-name">Спорт</div>
+        <div class="ob-topic-count">4,821 вопрос</div>
+      </div>
+      <div class="ob-topic-card" onclick="toggleTopic(this,'economy')">
+        <div class="ob-topic-emoji">💰</div>
+        <div class="ob-topic-name">Экономика</div>
+        <div class="ob-topic-count">2,103 вопроса</div>
+      </div>
+      <div class="ob-topic-card" onclick="toggleTopic(this,'politics')">
+        <div class="ob-topic-emoji">🏛</div>
+        <div class="ob-topic-name">Политика</div>
+        <div class="ob-topic-count">1,842 вопроса</div>
+      </div>
+      <div class="ob-topic-card" onclick="toggleTopic(this,'culture')">
+        <div class="ob-topic-emoji">🎬</div>
+        <div class="ob-topic-name">Культура</div>
+        <div class="ob-topic-count">3,290 вопросов</div>
+      </div>
+      <div class="ob-topic-card" onclick="toggleTopic(this,'tech')">
+        <div class="ob-topic-emoji">💻</div>
+        <div class="ob-topic-name">Технологии</div>
+        <div class="ob-topic-count">1,567 вопросов</div>
+      </div>
+      <div class="ob-topic-card" onclick="toggleTopic(this,'own')">
+        <div class="ob-topic-emoji">✏️</div>
+        <div class="ob-topic-name">Своё</div>
+        <div class="ob-topic-count">Создай сам</div>
+      </div>
+    </div>
+    <div class="ob-bottom">
+      <button class="ob-next-btn" id="ob-next-2" onclick="goStep(3)" disabled>Выбрать →</button>
+      <div class="ob-skip" onclick="goStep(3)">Пропустить</div>
+    </div>
+  </div>
+
+  <!-- STEP 3: First Question -->
+  <div class="ob-step" id="ob-step-3">
+    <div class="ob-progress">
+      <div class="ob-dot done"></div>
+      <div class="ob-dot done"></div>
+      <div class="ob-dot done"></div>
+    </div>
+    <div style="padding: 24px 20px 16px;">
+      <div style="font-family:'Bebas Neue',sans-serif; font-size:36px; letter-spacing:2px; margin-bottom:8px;">Первый прогноз</div>
+      <div style="font-size:14px; color:var(--text2);">Попробуй прямо сейчас — это займёт 5 секунд</div>
+    </div>
+    <div class="ob-question-wrap">
+      <div class="ob-q-card" id="ob-q-card">
+        <div class="ob-q-label">🔥 Горячий вопрос • 8,241 голос</div>
+        <div class="ob-q-text">Доллар будет выше 100 рублей к 1 июля 2026?</div>
+        <div class="ob-vote-btns" id="ob-vote-btns">
+          <button class="ob-btn-yes" onclick="obVote('yes')">✓ ДА</button>
+          <button class="ob-btn-no" onclick="obVote('no')">✗ НЕТ</button>
+        </div>
+        <div class="ob-voted" id="ob-voted">
+          <div class="ob-voted-icon">🎯</div>
+          <div class="ob-voted-text">Прогноз принят!</div>
+          <div class="ob-voted-sub">+20 очков когда узнаем результат</div>
+        </div>
+      </div>
+    </div>
+    <div class="ob-bottom">
+      <button class="ob-next-btn" id="ob-finish-btn" onclick="finishOnboarding()" disabled>
+        Войти в ИНСАЙТ →
+      </button>
+      <div style="font-size:11px; color:var(--text2); text-align:center; margin-top:8px;">Сделай прогноз чтобы продолжить</div>
+    </div>
+  </div>
+
+</div>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="logo">ИНСАЙТ</div>
+  <div class="stats-pill">
+    🏆 <strong>#4,821</strong> <span>из 31,204</span>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<!-- SCREEN: FEED -->
+<div class="screen active" id="screen-feed">
+
+  <!-- USER CARD -->
+  <div class="user-card">
+    <div class="stat-item">
+      <div class="stat-value">340</div>
+      <div class="stat-label">Очки</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-value green">67%</div>
+      <div class="stat-label">Точность</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-value">18</div>
+      <div class="stat-label">Прогнозов</div>
+    </div>
+  </div>
+
+  <!-- TOPICS -->
+  <div class="section-title">Темы</div>
+  <div class="topics-scroll">
+    <div class="topic-chip active" onclick="filterTopic(this)">🔥 Все</div>
+    <div class="topic-chip" onclick="filterTopic(this)">⚽ Спорт</div>
+    <div class="topic-chip" onclick="filterTopic(this)">💰 Экономика</div>
+    <div class="topic-chip" onclick="filterTopic(this)">🎬 Культура</div>
+    <div class="topic-chip" onclick="filterTopic(this)">💻 Технологии</div>
+    <div class="topic-chip" onclick="filterTopic(this)">🏛 Политика</div>
+  </div>
+
+  <!-- FEED -->
+  <div class="section-title">Горячие вопросы</div>
+  <div class="feed pb-100">
+
+    <!-- Q1 -->
+    <div class="q-card hot" id="q1">
+      <div class="q-meta">
+        <div class="q-topic economy">💰 Экономика</div>
+        <div class="q-badge"><span class="fire">🔥</span> 8,241 голос</div>
+      </div>
+      <div class="q-text">Доллар будет выше 100 рублей к 1 июля 2026?</div>
+      <div class="vote-section">
+        <div class="vote-bar-wrap"><div class="vote-bar-fill" style="width:61%"></div></div>
+        <div class="vote-labels">
+          <span class="vote-yes">ДА — 61%</span>
+          <span class="vote-no">НЕТ — 39%</span>
+        </div>
+        <div class="vote-buttons">
+          <button class="btn-yes" onclick="vote('q1','yes')">✓ ДА</button>
+          <button class="btn-no" onclick="vote('q1','no')">✗ НЕТ</button>
+        </div>
+        <div class="voted-result pending">⏳ Твой прогноз принят — ДА. Узнаем 1 июля</div>
+      </div>
+      <div class="q-footer">
+        <span class="q-voters">👥 8,241 участников</span>
+        <span class="q-deadline">📅 до 1 июл 2026</span>
+      </div>
+    </div>
+
+    <!-- Q2 -->
+    <div class="q-card" id="q2">
+      <div class="q-meta">
+        <div class="q-topic sport">⚽ Спорт</div>
+        <div class="q-badge">💬 3,102 голоса</div>
+      </div>
+      <div class="q-text">Зенит выиграет чемпионат России по футболу в сезоне 2025/26?</div>
+      <div class="vote-section">
+        <div class="vote-bar-wrap"><div class="vote-bar-fill" style="width:44%"></div></div>
+        <div class="vote-labels">
+          <span class="vote-yes">ДА — 44%</span>
+          <span class="vote-no">НЕТ — 56%</span>
+        </div>
+        <div class="vote-buttons">
+          <button class="btn-yes" onclick="vote('q2','yes')">✓ ДА</button>
+          <button class="btn-no" onclick="vote('q2','no')">✗ НЕТ</button>
+        </div>
+        <div class="voted-result pending">⏳ Твой прогноз принят. Узнаем в мае 2026</div>
+      </div>
+      <div class="q-footer">
+        <span class="q-voters">👥 3,102 участника</span>
+        <span class="q-deadline">📅 до 31 мая 2026</span>
+      </div>
+    </div>
+
+    <!-- Q3 -->
+    <div class="q-card" id="q3">
+      <div class="q-meta">
+        <div class="q-topic culture">🎬 Культура</div>
+        <div class="q-badge">💬 5,887 голосов</div>
+      </div>
+      <div class="q-text">«Слово пацана 2» выйдет в 2026 году?</div>
+      <div class="vote-section">
+        <div class="vote-bar-wrap"><div class="vote-bar-fill" style="width:78%"></div></div>
+        <div class="vote-labels">
+          <span class="vote-yes">ДА — 78%</span>
+          <span class="vote-no">НЕТ — 22%</span>
+        </div>
+        <div class="vote-buttons">
+          <button class="btn-yes" onclick="vote('q3','yes')">✓ ДА</button>
+          <button class="btn-no" onclick="vote('q3','no')">✗ НЕТ</button>
+        </div>
+        <div class="voted-result pending">⏳ Твой прогноз принят. Ждём анонса</div>
+      </div>
+      <div class="q-footer">
+        <span class="q-voters">👥 5,887 участников</span>
+        <span class="q-deadline">📅 до 31 дек 2026</span>
+      </div>
+    </div>
+
+    <!-- Q4 -->
+    <div class="q-card" id="q4">
+      <div class="q-meta">
+        <div class="q-topic tech">💻 Технологии</div>
+        <div class="q-badge">💬 2,340 голоса</div>
+      </div>
+      <div class="q-text">Telegram достигнет 1 миллиарда пользователей в 2026?</div>
+      <div class="vote-section">
+        <div class="vote-bar-wrap"><div class="vote-bar-fill" style="width:55%"></div></div>
+        <div class="vote-labels">
+          <span class="vote-yes">ДА — 55%</span>
+          <span class="vote-no">НЕТ — 45%</span>
+        </div>
+        <div class="vote-buttons">
+          <button class="btn-yes" onclick="vote('q4','yes')">✓ ДА</button>
+          <button class="btn-no" onclick="vote('q4','no')">✗ НЕТ</button>
+        </div>
+        <div class="voted-result pending">⏳ Твой прогноз принят</div>
+      </div>
+      <div class="q-footer">
+        <span class="q-voters">👥 2,340 участников</span>
+        <span class="q-deadline">📅 до 31 дек 2026</span>
+      </div>
+    </div>
+
+  </div>
+
+  <button class="add-btn" onclick="showToast('➕ Создание вопроса — скоро!')">
+    ➕ Добавить свой вопрос
+  </button>
+
+</div>
+
+<!-- SCREEN: RATING -->
+<div class="screen" id="screen-rating">
+  <div style="padding: 20px 20px 10px;">
+    <div style="font-family:'Bebas Neue',sans-serif; font-size:32px; letter-spacing:2px; margin-bottom:4px;">Рейтинг России</div>
+    <div style="font-size:12px; color:var(--text2);">31,204 участника • Обновляется в реальном времени</div>
+  </div>
+
+  <div class="rating-list pb-100">
+    <div class="rating-item">
+      <div class="rank gold">1</div>
+      <div class="avatar">🦁</div>
+      <div class="rating-info">
+        <div class="rating-name">Дмитрий К.</div>
+        <div class="rating-stats">94% точность • 47 прогнозов</div>
+      </div>
+      <div class="rating-points">2,840</div>
+    </div>
+    <div class="rating-item">
+      <div class="rank silver">2</div>
+      <div class="avatar">🐺</div>
+      <div class="rating-info">
+        <div class="rating-name">Анна М.</div>
+        <div class="rating-stats">91% точность • 52 прогноза</div>
+      </div>
+      <div class="rating-points">2,610</div>
+    </div>
+    <div class="rating-item">
+      <div class="rank bronze">3</div>
+      <div class="avatar">🦊</div>
+      <div class="rating-info">
+        <div class="rating-name">Сергей Р.</div>
+        <div class="rating-stats">89% точность • 61 прогноз</div>
+      </div>
+      <div class="rating-points">2,480</div>
+    </div>
+    <div class="rating-item">
+      <div class="rank">4</div>
+      <div class="avatar">🐻</div>
+      <div class="rating-info">
+        <div class="rating-name">Алексей В.</div>
+        <div class="rating-stats">87% точность • 38 прогнозов</div>
+      </div>
+      <div class="rating-points">2,190</div>
+    </div>
+    <div class="rating-item">
+      <div class="rank">5</div>
+      <div class="avatar">🦅</div>
+      <div class="rating-info">
+        <div class="rating-name">Мария П.</div>
+        <div class="rating-stats">85% точность • 44 прогноза</div>
+      </div>
+      <div class="rating-points">1,980</div>
+    </div>
+
+    <!-- divider -->
+    <div style="text-align:center; padding: 10px; color: var(--text2); font-size:12px;">• • •</div>
+
+    <div class="rating-item me">
+      <div class="rank" style="color:var(--accent2)">4,821</div>
+      <div class="avatar" style="background:linear-gradient(135deg,var(--accent),var(--green))">😎</div>
+      <div class="rating-info">
+        <div class="rating-name">Ты</div>
+        <div class="rating-stats">67% точность • 18 прогнозов</div>
+      </div>
+      <div class="rating-points">340</div>
+    </div>
+  </div>
+</div>
+
+<!-- SCREEN: PROFILE -->
+<div class="screen" id="screen-profile">
+  <div class="profile-hero">
+    <div class="profile-avatar">😎</div>
+    <div class="profile-name">Иван Петров</div>
+    <div class="profile-rank">⚡ Инсайдер • #4,821 в России</div>
+  </div>
+
+  <div class="profile-grid">
+    <div class="profile-stat">
+      <div class="profile-stat-val">340</div>
+      <div class="profile-stat-label">Очки</div>
+    </div>
+    <div class="profile-stat">
+      <div class="profile-stat-val" style="color:var(--green)">67%</div>
+      <div class="profile-stat-label">Точность</div>
+    </div>
+    <div class="profile-stat">
+      <div class="profile-stat-val">18</div>
+      <div class="profile-stat-label">Прогнозов</div>
+    </div>
+    <div class="profile-stat">
+      <div class="profile-stat-val" style="color:var(--red)">12</div>
+      <div class="profile-stat-label">Правильно</div>
+    </div>
+    <div class="profile-stat">
+      <div class="profile-stat-val">3</div>
+      <div class="profile-stat-label">Вопросов</div>
+    </div>
+    <div class="profile-stat">
+      <div class="profile-stat-val" style="color:#fdcb6e">🔥7</div>
+      <div class="profile-stat-label">Серия</div>
+    </div>
+  </div>
+
+  <div style="margin: 0 20px; padding: 16px; background: var(--surface); border: 1px solid var(--border); border-radius:16px; text-align:center; padding-bottom:100px; box-shadow: var(--shadow)">
+    <div style="font-size:13px; color:var(--text2); margin-bottom:8px">Ты точнее чем</div>
+    <div style="font-family:'Bebas Neue',sans-serif; font-size:48px; background: linear-gradient(135deg, var(--accent), var(--green)); -webkit-background-clip:text; -webkit-text-fill-color:transparent;">84%</div>
+    <div style="font-size:13px; color:var(--text2)">пользователей России</div>
+  </div>
+</div>
+
+<!-- BOTTOM NAV -->
+<div class="bottom-nav">
+  <div class="nav-item active" id="nav-feed" onclick="showScreen('feed')">
+    <div class="nav-icon">🔮</div>
+    <div class="nav-label">Лента</div>
+  </div>
+  <div class="nav-item" id="nav-rating" onclick="showScreen('rating')">
+    <div class="nav-icon">🏆</div>
+    <div class="nav-label">Рейтинг</div>
+  </div>
+  <div class="nav-item" id="nav-add" onclick="showToast('➕ Создание вопроса — скоро!')">
+    <div class="nav-icon">➕</div>
+    <div class="nav-label">Вопрос</div>
+  </div>
+  <div class="nav-item" id="nav-profile" onclick="showScreen('profile')">
+    <div class="nav-icon">👤</div>
+    <div class="nav-label">Профиль</div>
+  </div>
+</div>
+
+<script>
+// ONBOARDING
+let selectedTopics = [];
+let obVoted = false;
+
+function goStep(n) {
+  document.querySelectorAll('.ob-step').forEach(s => s.classList.remove('active'));
+  document.getElementById('ob-step-' + n).classList.add('active');
+}
+
+function toggleTopic(el, topic) {
+  el.classList.toggle('selected');
+  if (el.classList.contains('selected')) {
+    selectedTopics.push(topic);
+  } else {
+    selectedTopics = selectedTopics.filter(t => t !== topic);
+  }
+  document.getElementById('ob-selected-count').textContent = selectedTopics.length;
+  document.getElementById('ob-next-2').disabled = selectedTopics.length < 2;
+}
+
+function obVote(choice) {
+  document.getElementById('ob-vote-btns').style.display = 'none';
+  document.getElementById('ob-voted').style.display = 'block';
+  document.getElementById('ob-finish-btn').disabled = false;
+  document.querySelector('.ob-bottom div').style.display = 'none';
+  obVoted = true;
+}
+
+function finishOnboarding() {
+  const ob = document.getElementById('onboarding');
+  ob.style.transition = 'opacity 0.4s';
+  ob.style.opacity = '0';
+  setTimeout(() => ob.style.display = 'none', 400);
+  setTimeout(() => showToast('🎉 Добро пожаловать в ИНСАЙТ!'), 500);
+}
+
+function showScreen(name) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('screen-' + name).classList.add('active');
+  document.getElementById('nav-' + name).classList.add('active');
+}
+
+function vote(id, choice) {
+  const card = document.getElementById(id);
+  if (card.classList.contains('voted')) return;
+  card.classList.add('voted');
+  const result = card.querySelector('.voted-result');
+  result.classList.add('pending');
+  showToast('✅ Прогноз принят! +20 очков когда узнаем результат');
+}
+
+function filterTopic(el) {
+  document.querySelectorAll('.topic-chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  showToast('Фильтр: ' + el.textContent);
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// simulate push after 4s
+setTimeout(() => {
+  showToast('🔔 Новый горячий вопрос о ключевой ставке ЦБ!');
+}, 4000);
+</script>
+</body>
+</html>
