@@ -1414,13 +1414,20 @@ const db = createClient(SUPABASE_URL, SUPABASE_KEY);
 // Сохраняем/обновляем пользователя в базе
 async function syncUser() {
   if (!currentUser.id) return;
-  const { error } = await db.from('users').upsert({
+  const { data, error } = await db.from('users').upsert({
     id: currentUser.id,
     name: currentUser.name,
     username: currentUser.username,
     photo_url: currentUser.photo
-  }, { onConflict: 'id' });
-  if (error) console.error('syncUser error:', error);
+  }, { onConflict: 'id' }).select('onboarding_done').single();
+
+  if (error) { console.error('syncUser error:', error); return; }
+
+  // Если онбординг уже пройден в базе — скрываем
+  if (data?.onboarding_done) {
+    const ob = document.getElementById('onboarding');
+    if (ob) ob.style.display = 'none';
+  }
 }
 
 // Загружаем вопросы из базы
@@ -1568,10 +1575,24 @@ window.addEventListener('DOMContentLoaded', async () => {
     rankEl.textContent = `@${currentUser.username} • Загрузка рейтинга...`;
   }
 
-  // Проверяем был ли уже онбординг
-  const onboardingDone = localStorage.getItem('insayt_onboarding_done');
+  // Проверяем онбординг — несколько способов хранения
+  const key = 'insayt_ob_' + (currentUser.id || 'guest');
+  let onboardingDone = false;
+
+  // Способ 1: localStorage
+  try { onboardingDone = !!localStorage.getItem(key); } catch(e) {}
+
+  // Способ 2: sessionStorage
+  if (!onboardingDone) {
+    try { onboardingDone = !!sessionStorage.getItem('insayt_ob'); } catch(e) {}
+  }
+
+  // Способ 3: cookie
+  if (!onboardingDone) {
+    onboardingDone = document.cookie.includes('insayt_ob=1');
+  }
+
   if (onboardingDone) {
-    // Сразу скрываем онбординг
     const ob = document.getElementById('onboarding');
     if (ob) ob.style.display = 'none';
   }
@@ -1609,9 +1630,19 @@ function obVote(choice) {
   obVoted = true;
 }
 
-function finishOnboarding() {
-  // Сохраняем что онбординг пройден
-  localStorage.setItem('insayt_onboarding_done', '1');
+async function finishOnboarding() {
+  // Сохраняем флаг всеми доступными способами
+  const key = 'insayt_ob_' + (currentUser.id || 'guest');
+  try { localStorage.setItem(key, '1'); } catch(e) {}
+  try { localStorage.setItem('insayt_onboarding_done', '1'); } catch(e) {}
+  try { sessionStorage.setItem('insayt_ob', '1'); } catch(e) {}
+  try { document.cookie = 'insayt_ob=1; max-age=31536000; path=/'; } catch(e) {}
+
+  // Сохраняем в базу
+  if (currentUser.id) {
+    await db.from('users').update({ onboarding_done: true }).eq('id', currentUser.id);
+  }
+
   const ob = document.getElementById('onboarding');
   ob.style.transition = 'opacity 0.4s';
   ob.style.opacity = '0';
