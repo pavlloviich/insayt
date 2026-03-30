@@ -6,6 +6,25 @@
 <title>ИНСАЙТ</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+// Скрываем онбординг мгновенно если уже проходили
+(function() {
+  try {
+    if (localStorage.getItem('insayt_onboarding_done') ||
+        sessionStorage.getItem('insayt_ob') ||
+        document.cookie.includes('insayt_ob=1')) {
+      document.addEventListener('DOMContentLoaded', function() {
+        const ob = document.getElementById('onboarding');
+        if (ob) ob.style.display = 'none';
+      });
+      // Также добавляем стиль сразу
+      const style = document.createElement('style');
+      style.textContent = '#onboarding { display: none !important; }';
+      document.head.appendChild(style);
+    }
+  } catch(e) {}
+})();
+</script>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
   :root {
