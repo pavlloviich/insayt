@@ -1568,6 +1568,14 @@ window.addEventListener('DOMContentLoaded', async () => {
     rankEl.textContent = `@${currentUser.username} • Загрузка рейтинга...`;
   }
 
+  // Проверяем был ли уже онбординг
+  const onboardingDone = localStorage.getItem('insayt_onboarding_done');
+  if (onboardingDone) {
+    // Сразу скрываем онбординг
+    const ob = document.getElementById('onboarding');
+    if (ob) ob.style.display = 'none';
+  }
+
   // Синхронизируем пользователя и загружаем данные
   await syncUser();
   await loadQuestions();
@@ -1602,6 +1610,8 @@ function obVote(choice) {
 }
 
 function finishOnboarding() {
+  // Сохраняем что онбординг пройден
+  localStorage.setItem('insayt_onboarding_done', '1');
   const ob = document.getElementById('onboarding');
   ob.style.transition = 'opacity 0.4s';
   ob.style.opacity = '0';
