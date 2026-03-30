@@ -6,25 +6,6 @@
 <title>ИНСАЙТ</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script>
-// Скрываем онбординг мгновенно если уже проходили
-(function() {
-  try {
-    if (localStorage.getItem('insayt_onboarding_done') ||
-        sessionStorage.getItem('insayt_ob') ||
-        document.cookie.includes('insayt_ob=1')) {
-      document.addEventListener('DOMContentLoaded', function() {
-        const ob = document.getElementById('onboarding');
-        if (ob) ob.style.display = 'none';
-      });
-      // Также добавляем стиль сразу
-      const style = document.createElement('style');
-      style.textContent = '#onboarding { display: none !important; }';
-      document.head.appendChild(style);
-    }
-  } catch(e) {}
-})();
-</script>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
   :root {
@@ -527,6 +508,10 @@
     inset: 0;
     z-index: 999;
     background: #f5f6fa;
+    display: none;
+    flex-direction: column;
+  }
+  .onboarding.show { display: flex; }
 
   .ob-step { display: none; flex-direction: column; height: 100%; }
   .ob-step.active { display: flex; }
@@ -1442,10 +1427,12 @@ async function syncUser() {
 
   if (error) { console.error('syncUser error:', error); return; }
 
-  // Если онбординг уже пройден в базе — скрываем
+  // Если онбординг уже пройден в базе — скрываем и сохраняем локально
   if (data?.onboarding_done) {
     const ob = document.getElementById('onboarding');
-    if (ob) ob.style.display = 'none';
+    if (ob) ob.classList.remove('show');
+    try { localStorage.setItem('insayt_onboarding_done', '1'); } catch(e) {}
+    try { document.cookie = 'insayt_ob=1; max-age=31536000; path=/'; } catch(e) {}
   }
 }
 
@@ -1594,26 +1581,18 @@ window.addEventListener('DOMContentLoaded', async () => {
     rankEl.textContent = `@${currentUser.username} • Загрузка рейтинга...`;
   }
 
-  // Проверяем онбординг — несколько способов хранения
+  // Проверяем нужен ли онбординг
   const key = 'insayt_ob_' + (currentUser.id || 'guest');
-  let onboardingDone = false;
+  let needOnboarding = true;
 
-  // Способ 1: localStorage
-  try { onboardingDone = !!localStorage.getItem(key); } catch(e) {}
+  try { if (localStorage.getItem(key) || localStorage.getItem('insayt_onboarding_done')) needOnboarding = false; } catch(e) {}
+  try { if (sessionStorage.getItem('insayt_ob')) needOnboarding = false; } catch(e) {}
+  if (document.cookie.includes('insayt_ob=1')) needOnboarding = false;
 
-  // Способ 2: sessionStorage
-  if (!onboardingDone) {
-    try { onboardingDone = !!sessionStorage.getItem('insayt_ob'); } catch(e) {}
-  }
-
-  // Способ 3: cookie
-  if (!onboardingDone) {
-    onboardingDone = document.cookie.includes('insayt_ob=1');
-  }
-
-  if (onboardingDone) {
+  if (needOnboarding) {
+    // Показываем онбординг
     const ob = document.getElementById('onboarding');
-    if (ob) ob.style.display = 'none';
+    if (ob) ob.classList.add('show');
   }
 
   // Синхронизируем пользователя и загружаем данные
@@ -1665,7 +1644,7 @@ async function finishOnboarding() {
   const ob = document.getElementById('onboarding');
   ob.style.transition = 'opacity 0.4s';
   ob.style.opacity = '0';
-  setTimeout(() => ob.style.display = 'none', 400);
+  setTimeout(() => { ob.classList.remove('show'); ob.style.opacity = ''; ob.style.transition = ''; }, 400);
   setTimeout(() => showToast('🎉 Добро пожаловать в ИНСАЙТ!'), 500);
 }
 
