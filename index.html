@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>ИНСАЙТ</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
   :root {
@@ -742,6 +743,93 @@
 
   .ob-step.active { animation: obFadeIn 0.35s ease both; }
 
+  /* CREATE QUESTION SCREEN */
+  .create-screen {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    z-index: 9999;
+    background: var(--bg);
+    display: none;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .create-screen.open { display: flex; }
+  @keyframes slideFromBottom {
+    from { transform: translateY(100%); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+  .create-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 20px 20px 16px; border-bottom: 1px solid var(--border);
+  }
+  .create-title { font-family: 'Bebas Neue', sans-serif; font-size: 28px; letter-spacing: 2px; color: var(--text); }
+  .create-close {
+    width: 36px; height: 36px; border-radius: 50%; background: var(--surface2);
+    border: none; font-size: 18px; cursor: pointer; display: flex;
+    align-items: center; justify-content: center; transition: all 0.15s; color: var(--text2);
+  }
+  .create-close:active { transform: scale(0.9); }
+  .create-body { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 20px; }
+  .create-field { display: flex; flex-direction: column; gap: 8px; }
+  .create-label { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--text2); }
+  .create-input {
+    background: var(--surface); border: 1.5px solid var(--border); border-radius: 14px;
+    padding: 14px 16px; font-family: 'Manrope', sans-serif; font-size: 15px; font-weight: 600;
+    color: var(--text); outline: none; transition: border-color 0.2s; width: 100%; box-shadow: var(--shadow);
+  }
+  .create-input:focus { border-color: var(--accent); }
+  .create-input::placeholder { color: var(--text2); font-weight: 400; }
+  textarea.create-input { resize: none; min-height: 90px; line-height: 1.5; }
+  .create-answers { display: flex; flex-direction: column; gap: 10px; }
+  .answer-input-wrap { display: flex; align-items: center; gap: 10px; }
+  .answer-badge { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 800; flex-shrink: 0; }
+  .answer-badge.yes { background: rgba(10,191,126,0.15); color: var(--green); }
+  .answer-badge.no { background: rgba(240,84,84,0.15); color: var(--red); }
+  .topics-select { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .topic-select-chip {
+    padding: 10px 8px; border-radius: 12px; border: 1.5px solid var(--border);
+    background: var(--surface); font-size: 12px; font-weight: 700; color: var(--text2);
+    cursor: pointer; text-align: center; transition: all 0.15s; box-shadow: var(--shadow);
+    position: relative; user-select: none;
+  }
+  .topic-select-chip.active {
+    border-color: var(--accent); background: rgba(61,90,241,0.08); color: var(--accent);
+  }
+  .topic-select-chip.active::after {
+    content: '✓';
+    position: absolute;
+    top: 4px; right: 6px;
+    font-size: 10px;
+    color: var(--accent);
+    font-weight: 900;
+  }
+  .topic-select-chip:active { transform: scale(0.95); }
+  .char-count { font-size: 11px; color: var(--text2); text-align: right; margin-top: -4px; }
+  .char-count.warn { color: var(--red); }
+  .create-preview { background: var(--surface); border: 1.5px dashed var(--border); border-radius: 16px; padding: 16px; box-shadow: var(--shadow); }
+  .preview-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--text2); font-weight: 700; margin-bottom: 10px; }
+  .preview-q { font-size: 15px; font-weight: 700; color: var(--text); margin-bottom: 12px; line-height: 1.4; }
+  .preview-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .preview-btn-yes { padding: 10px; border-radius: 10px; background: rgba(10,191,126,0.1); color: var(--green); border: 1.5px solid rgba(10,191,126,0.25); font-size: 13px; font-weight: 800; text-align: center; }
+  .preview-btn-no { padding: 10px; border-radius: 10px; background: rgba(240,84,84,0.1); color: var(--red); border: 1.5px solid rgba(240,84,84,0.25); font-size: 13px; font-weight: 800; text-align: center; }
+  .create-submit {
+    margin: 0 20px 20px; padding: 17px; background: linear-gradient(135deg, var(--accent), #2541b2);
+    border: none; border-radius: 16px; color: white; font-family: 'Manrope', sans-serif;
+    font-size: 16px; font-weight: 800; cursor: pointer; transition: all 0.2s;
+    box-shadow: 0 8px 24px rgba(61,90,241,0.3); width: calc(100% - 40px);
+  }
+  .create-submit:active { transform: scale(0.98); }
+  .create-submit:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+  .create-success { display: none; flex-direction: column; align-items: center; justify-content: center; flex: 1; padding: 40px; text-align: center; }
+  .success-icon { font-size: 72px; margin-bottom: 20px; animation: bounceIn 0.5s cubic-bezier(0.34,1.56,0.64,1) both; }
+  @keyframes bounceIn { from { transform: scale(0); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  .success-title { font-family: 'Bebas Neue', sans-serif; font-size: 36px; letter-spacing: 2px; color: var(--text); margin-bottom: 10px; }
+  .success-desc { font-size: 15px; color: var(--text2); line-height: 1.6; margin-bottom: 30px; }
+  .success-stats { display: flex; gap: 16px; margin-bottom: 30px; }
+  .success-stat { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 14px 20px; text-align: center; box-shadow: var(--shadow); }
+  .success-stat-val { font-family: 'Bebas Neue', sans-serif; font-size: 28px; color: var(--accent); }
+  .success-stat-label { font-size: 11px; color: var(--text2); text-transform: uppercase; letter-spacing: 0.5px; }
+
   /* ANIMATIONS */
   @keyframes slideUp {
     from { transform: translateY(20px); opacity: 0; }
@@ -1036,7 +1124,7 @@
 
   </div>
 
-  <button class="add-btn" onclick="showToast('➕ Создание вопроса — скоро!')">
+  <button class="add-btn" onclick="showScreen('add')">
     ➕ Добавить свой вопрос
   </button>
 
@@ -1112,11 +1200,11 @@
 </div>
 
 <!-- SCREEN: PROFILE -->
-<div class="screen" id="screen-profile">
+<div class="screen" id="screen-profile" style="overflow-y:auto; padding-bottom:100px;">
   <div class="profile-hero">
-    <div class="profile-avatar">😎</div>
-    <div class="profile-name">Иван Петров</div>
-    <div class="profile-rank">⚡ Инсайдер • #4,821 в России</div>
+    <div class="profile-avatar" id="profile-avatar">😎</div>
+    <div class="profile-name" id="profile-name">Иван Петров</div>
+    <div class="profile-rank" id="profile-rank-text">⚡ Инсайдер • #4,821 в России</div>
   </div>
 
   <div class="profile-grid">
@@ -1146,10 +1234,129 @@
     </div>
   </div>
 
-  <div style="margin: 0 20px; padding: 16px; background: var(--surface); border: 1px solid var(--border); border-radius:16px; text-align:center; padding-bottom:100px; box-shadow: var(--shadow)">
-    <div style="font-size:13px; color:var(--text2); margin-bottom:8px">Ты точнее чем</div>
-    <div style="font-family:'Bebas Neue',sans-serif; font-size:48px; background: linear-gradient(135deg, var(--accent), var(--green)); -webkit-background-clip:text; -webkit-text-fill-color:transparent;">84%</div>
-    <div style="font-size:13px; color:var(--text2)">пользователей России</div>
+  <div style="margin:0 20px; padding:20px; background:var(--surface); border:1px solid var(--border); border-radius:16px; text-align:center; box-shadow:var(--shadow);">
+    <div style="font-size:13px; color:var(--text2); margin-bottom:8px;">Ты точнее чем</div>
+    <div style="font-family:'Bebas Neue',sans-serif; font-size:48px; background:linear-gradient(135deg,var(--accent),var(--green)); -webkit-background-clip:text; -webkit-text-fill-color:transparent;">84%</div>
+    <div style="font-size:13px; color:var(--text2);">пользователей России</div>
+  </div>
+
+  <!-- Мои вопросы -->
+  <div style="padding:20px 20px 0;">
+    <div class="section-title" style="padding:0 0 12px;">📋 Мои вопросы</div>
+    <div id="my-questions-list" style="display:flex; flex-direction:column; gap:10px;">
+
+      <div style="background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:16px; box-shadow:var(--shadow);">
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
+          <div class="q-topic sport" style="font-size:10px;">⚽ Спорт</div>
+          <div style="font-size:11px; color:var(--text2);">👥 342 голоса</div>
+        </div>
+        <div style="font-size:14px; font-weight:700; color:var(--text); margin-bottom:10px; line-height:1.4;">Зенит выиграет чемпионат России 2025/26?</div>
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <div style="font-size:12px; color:var(--green); font-weight:700;">ДА 44% · НЕТ 56%</div>
+          <div style="font-size:11px; color:var(--text2); background:var(--surface2); padding:4px 10px; border-radius:8px;">На модерации</div>
+        </div>
+      </div>
+
+      <div style="background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:16px; box-shadow:var(--shadow);">
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
+          <div class="q-topic culture" style="font-size:10px;">🎬 Культура</div>
+          <div style="font-size:11px; color:var(--text2);">👥 1,204 голоса</div>
+        </div>
+        <div style="font-size:14px; font-weight:700; color:var(--text); margin-bottom:10px; line-height:1.4;">Моргенштерн вернётся в Россию в 2026?</div>
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <div style="font-size:12px; color:var(--green); font-weight:700;">ДА 38% · НЕТ 62%</div>
+          <div style="font-size:11px; color:var(--accent); background:rgba(61,90,241,0.08); padding:4px 10px; border-radius:8px;">Активен</div>
+        </div>
+      </div>
+
+      <div style="background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:16px; box-shadow:var(--shadow);">
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
+          <div class="q-topic economy" style="font-size:10px;">💰 Экономика</div>
+          <div style="font-size:11px; color:var(--text2);">👥 2,891 голос</div>
+        </div>
+        <div style="font-size:14px; font-weight:700; color:var(--text); margin-bottom:10px; line-height:1.4;">ЦБ снизит ставку до 15% к концу 2025?</div>
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <div style="font-size:12px; color:var(--green); font-weight:700;">ДА 71% · НЕТ 29%</div>
+          <div style="font-size:11px; color:var(--green); background:rgba(10,191,126,0.08); padding:4px 10px; border-radius:8px;">✓ Ты угадал</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- SCREEN: ADD QUESTION -->
+<div class="screen" id="screen-add" style="overflow-y:auto; padding-bottom:100px;">
+
+  <div style="padding:20px 20px 16px; border-bottom:1px solid var(--border);">
+    <div style="font-family:'Bebas Neue',sans-serif; font-size:32px; letter-spacing:2px; margin-bottom:4px;">Новый вопрос</div>
+    <div style="font-size:12px; color:var(--text2);">Задай вопрос — другие проголосуют</div>
+  </div>
+
+  <div style="padding:16px 20px; display:flex; flex-direction:column; gap:14px;">
+
+    <!-- Вопрос -->
+    <div style="background:var(--surface); border:1px solid var(--border); border-radius:20px; padding:18px; box-shadow:var(--shadow);">
+      <div class="section-title" style="padding:0 0 10px;">📝 Вопрос</div>
+      <textarea id="q-text" placeholder="Например: Сборная России выйдет на ЧМ 2026?" maxlength="120"
+        oninput="updatePreview(); updateCharCount(this, 'q-chars', 120)"
+        style="width:100%; background:var(--surface2); border:1.5px solid var(--border); border-radius:14px; padding:14px; font-family:'Manrope',sans-serif; font-size:15px; font-weight:600; color:var(--text); outline:none; resize:none; min-height:90px; line-height:1.5; box-sizing:border-box;"></textarea>
+      <div id="q-chars" style="font-size:11px; color:var(--text2); text-align:right; margin-top:6px;">0 / 120</div>
+    </div>
+
+    <!-- Варианты -->
+    <div style="background:var(--surface); border:1px solid var(--border); border-radius:20px; padding:18px; box-shadow:var(--shadow);">
+      <div class="section-title" style="padding:0 0 12px;">🗳 Варианты ответа</div>
+      <div style="display:flex; flex-direction:column; gap:10px;">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <div style="width:40px; height:40px; border-radius:50%; background:rgba(10,191,126,0.12); color:var(--green); display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:800; flex-shrink:0;">ДА</div>
+          <input id="ans-yes" value="Да" placeholder="Вариант ДА" oninput="updatePreview()"
+            style="flex:1; background:var(--surface2); border:1.5px solid var(--border); border-radius:12px; padding:12px 14px; font-family:'Manrope',sans-serif; font-size:14px; font-weight:700; color:var(--text); outline:none;">
+        </div>
+        <div style="display:flex; align-items:center; gap:10px;">
+          <div style="width:40px; height:40px; border-radius:50%; background:rgba(240,84,84,0.12); color:var(--red); display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:800; flex-shrink:0;">НЕТ</div>
+          <input id="ans-no" value="Нет" placeholder="Вариант НЕТ" oninput="updatePreview()"
+            style="flex:1; background:var(--surface2); border:1.5px solid var(--border); border-radius:12px; padding:12px 14px; font-family:'Manrope',sans-serif; font-size:14px; font-weight:700; color:var(--text); outline:none;">
+        </div>
+      </div>
+    </div>
+
+    <!-- Тема -->
+    <div style="background:var(--surface); border:1px solid var(--border); border-radius:20px; padding:18px; box-shadow:var(--shadow);">
+      <div class="section-title" style="padding:0 0 12px;">🏷 Тема</div>
+      <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px;" id="topic-grid">
+        <div class="topic-select-chip active" onclick="selectTopic(this)">⚽ Спорт</div>
+        <div class="topic-select-chip" onclick="selectTopic(this)">💰 Экономика</div>
+        <div class="topic-select-chip" onclick="selectTopic(this)">🏛 Политика</div>
+        <div class="topic-select-chip" onclick="selectTopic(this)">🎬 Культура</div>
+        <div class="topic-select-chip" onclick="selectTopic(this)">💻 Технологии</div>
+        <div class="topic-select-chip" onclick="selectTopic(this)">✏️ Другое</div>
+      </div>
+    </div>
+
+    <!-- Дата -->
+    <div style="background:var(--surface); border:1px solid var(--border); border-radius:20px; padding:18px; box-shadow:var(--shadow);">
+      <div class="section-title" style="padding:0 0 10px;">📅 Дата закрытия</div>
+      <input type="date" id="q-date"
+        style="width:100%; background:var(--surface2); border:1.5px solid var(--border); border-radius:12px; padding:12px 14px; font-family:'Manrope',sans-serif; font-size:14px; font-weight:600; color:var(--text); outline:none; box-sizing:border-box;">
+    </div>
+
+    <!-- Предпросмотр -->
+    <div style="background:var(--surface); border:1.5px dashed rgba(61,90,241,0.25); border-radius:20px; padding:18px; box-shadow:var(--shadow);">
+      <div class="section-title" style="padding:0 0 12px;">👁 Предпросмотр</div>
+      <div id="preview-q-text" style="font-size:16px; font-weight:700; color:var(--text); margin-bottom:14px; line-height:1.4; min-height:24px;">Введи вопрос выше...</div>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+        <div id="preview-yes" style="padding:11px; border-radius:12px; background:rgba(10,191,126,0.1); color:var(--green); border:1.5px solid rgba(10,191,126,0.25); font-size:14px; font-weight:800; text-align:center;">✓ Да</div>
+        <div id="preview-no" style="padding:11px; border-radius:12px; background:rgba(240,84,84,0.1); color:var(--red); border:1.5px solid rgba(240,84,84,0.25); font-size:14px; font-weight:800; text-align:center;">✗ Нет</div>
+      </div>
+    </div>
+
+    <!-- Кнопка -->
+    <button id="create-submit-btn" onclick="submitQuestion()"
+      style="width:100%; padding:17px; background:linear-gradient(135deg,var(--accent),#2541b2); border:none; border-radius:16px; color:white; font-family:'Manrope',sans-serif; font-size:16px; font-weight:800; cursor:pointer; box-shadow:0 8px 24px rgba(61,90,241,0.3); opacity:0.4; transition:all 0.2s;" disabled>
+      Опубликовать вопрос →
+    </button>
+
   </div>
 </div>
 
@@ -1163,7 +1370,7 @@
     <div class="nav-icon">🏆</div>
     <div class="nav-label">Рейтинг</div>
   </div>
-  <div class="nav-item" id="nav-add" onclick="showToast('➕ Создание вопроса — скоро!')">
+  <div class="nav-item" id="nav-add" onclick="showScreen('add')">
     <div class="nav-icon">➕</div>
     <div class="nav-label">Вопрос</div>
   </div>
@@ -1174,6 +1381,53 @@
 </div>
 
 <script>
+// TELEGRAM WEBAPP INIT
+const tg = window.Telegram?.WebApp;
+let currentUser = {
+  id: null,
+  name: 'Пользователь',
+  username: '',
+  photo: null
+};
+
+if (tg) {
+  tg.ready();
+  tg.expand();
+  // Применяем цвета Telegram если есть
+  if (tg.colorScheme === 'dark') {
+    // можно добавить тёмную тему позже
+  }
+  // Получаем данные пользователя
+  const user = tg.initDataUnsafe?.user;
+  if (user) {
+    currentUser = {
+      id: user.id,
+      name: [user.first_name, user.last_name].filter(Boolean).join(' '),
+      username: user.username || '',
+      photo: user.photo_url || null
+    };
+  }
+}
+
+// Применяем данные пользователя к интерфейсу после загрузки
+window.addEventListener('DOMContentLoaded', () => {
+  // Обновляем имя в профиле
+  const nameEl = document.getElementById('profile-name');
+  if (nameEl) nameEl.textContent = currentUser.name || 'Пользователь';
+
+  // Обновляем аватар если есть фото
+  const avatarEl = document.getElementById('profile-avatar');
+  if (avatarEl && currentUser.photo) {
+    avatarEl.innerHTML = `<img src="${currentUser.photo}" style="width:100%; height:100%; border-radius:50%; object-fit:cover;">`;
+  }
+
+  // Обновляем имя в заголовке статистики
+  const rankEl = document.getElementById('profile-rank-text');
+  if (rankEl && currentUser.username) {
+    rankEl.textContent = `@${currentUser.username} • #4,821 в России`;
+  }
+});
+
 // ONBOARDING
 let selectedTopics = [];
 let obVoted = false;
@@ -1208,6 +1462,124 @@ function finishOnboarding() {
   ob.style.opacity = '0';
   setTimeout(() => ob.style.display = 'none', 400);
   setTimeout(() => showToast('🎉 Добро пожаловать в ИНСАЙТ!'), 500);
+}
+
+// CREATE QUESTION - now works as a tab screen
+function selectTopic(el) {
+  el.classList.toggle('active');
+  const active = document.querySelectorAll('#topic-grid .topic-select-chip.active');
+  if (active.length === 0) el.classList.add('active');
+}
+
+function updatePreview() {
+  const qEl = document.getElementById('q-text');
+  const yesEl = document.getElementById('ans-yes');
+  const noEl = document.getElementById('ans-no');
+  if (!qEl) return;
+  const q = qEl.value.trim();
+  const yes = yesEl ? yesEl.value.trim() : 'Да';
+  const no = noEl ? noEl.value.trim() : 'Нет';
+  const pq = document.getElementById('preview-q-text');
+  const py = document.getElementById('preview-yes');
+  const pn = document.getElementById('preview-no');
+  if (pq) pq.textContent = q || 'Введи вопрос выше...';
+  if (py) py.textContent = '✓ ' + (yes || 'Да');
+  if (pn) pn.textContent = '✗ ' + (no || 'Нет');
+  const valid = q.length >= 10 && yes.length > 0 && no.length > 0;
+  const btn = document.getElementById('create-submit-btn');
+  if (btn) {
+    btn.disabled = !valid;
+    btn.style.opacity = valid ? '1' : '0.4';
+    btn.style.cursor = valid ? 'pointer' : 'not-allowed';
+  }
+}
+
+function updateCharCount(el, countId, max) {
+  const count = el.value.length;
+  const el2 = document.getElementById(countId);
+  if (!el2) return;
+  el2.textContent = count + ' / ' + max;
+  el2.style.color = count > max * 0.85 ? 'var(--red)' : 'var(--text2)';
+}
+
+function submitQuestion() {
+  const q = document.getElementById('q-text').value.trim();
+  const yes = document.getElementById('ans-yes').value.trim();
+  const no = document.getElementById('ans-no').value.trim();
+  const topicEl = document.querySelector('#topic-grid .topic-select-chip.active');
+  const topic = topicEl ? topicEl.textContent : '⚽ Спорт';
+
+  // Add to feed
+  addQuestionToFeed(q, yes, no, topic);
+  // Add to my questions in profile
+  addToMyQuestions(q, yes, no, topic);
+
+  // Reset form
+  document.getElementById('q-text').value = '';
+  document.getElementById('q-chars').textContent = '0 / 120';
+  document.getElementById('ans-yes').value = 'Да';
+  document.getElementById('ans-no').value = 'Нет';
+  document.getElementById('preview-q-text').textContent = 'Введи вопрос выше...';
+  document.getElementById('preview-yes').textContent = '✓ Да';
+  document.getElementById('preview-no').textContent = '✗ Нет';
+  const btn = document.getElementById('create-submit-btn');
+  btn.disabled = true;
+  btn.style.opacity = '0.4';
+  document.querySelectorAll('#topic-grid .topic-select-chip').forEach((c,i) => c.classList.toggle('active', i===0));
+
+  showToast('🎯 Вопрос создан! +50 очков');
+  showScreen('feed');
+}
+
+function addToMyQuestions(q, yes, no, topic) {
+  const list = document.getElementById('my-questions-list');
+  if (!list) return;
+  const item = document.createElement('div');
+  item.style.cssText = 'background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:16px; box-shadow:var(--shadow);';
+  item.innerHTML = `
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
+      <div style="font-size:10px; font-weight:700; padding:3px 8px; border-radius:6px; background:rgba(61,90,241,0.1); color:var(--accent);">${topic}</div>
+      <div style="font-size:11px; color:var(--text2);">👥 1 голос</div>
+    </div>
+    <div style="font-size:14px; font-weight:700; color:var(--text); margin-bottom:10px; line-height:1.4;">${q}</div>
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <div style="font-size:12px; color:var(--text2); font-weight:600;">${yes} 50% · ${no} 50%</div>
+      <div style="font-size:11px; color:var(--text2); background:var(--surface2); padding:4px 10px; border-radius:8px;">На модерации</div>
+    </div>
+  `;
+  list.insertBefore(item, list.firstChild);
+}
+
+function addQuestionToFeed(q, yes, no, topic) {
+  const feed = document.querySelector('.feed');
+  const id = 'q' + Date.now();
+  const card = document.createElement('div');
+  card.className = 'q-card';
+  card.id = id;
+  card.innerHTML = `
+    <div class="q-meta">
+      <div class="q-topic economy">${topic}</div>
+      <div class="q-badge">✨ Твой вопрос</div>
+    </div>
+    <div class="q-text">${q}</div>
+    <div class="vote-section">
+      <div class="vote-bar-wrap"><div class="vote-bar-fill" style="width:50%"></div></div>
+      <div class="vote-labels">
+        <span class="vote-yes">ДА — 50%</span>
+        <span class="vote-no">НЕТ — 50%</span>
+      </div>
+      <div class="vote-buttons">
+        <button class="btn-yes" onclick="vote('${id}','yes')">✓ ${yes}</button>
+        <button class="btn-no" onclick="vote('${id}','no')">✗ ${no}</button>
+      </div>
+      <div class="voted-result pending">⏳ Твой прогноз принят</div>
+    </div>
+    <div class="q-footer">
+      <span class="q-voters">👥 1 участник</span>
+      <span class="q-deadline">📅 На модерации</span>
+    </div>
+  `;
+  feed.insertBefore(card, feed.firstChild);
 }
 
 function showScreen(name) {
