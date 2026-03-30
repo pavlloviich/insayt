@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>ИНСАЙТ</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
   :root {
@@ -1393,11 +1394,6 @@ let currentUser = {
 if (tg) {
   tg.ready();
   tg.expand();
-  // Применяем цвета Telegram если есть
-  if (tg.colorScheme === 'dark') {
-    // можно добавить тёмную тему позже
-  }
-  // Получаем данные пользователя
   const user = tg.initDataUnsafe?.user;
   if (user) {
     currentUser = {
@@ -1409,23 +1405,172 @@ if (tg) {
   }
 }
 
+// SUPABASE INIT
+const SUPABASE_URL = 'https://jnvlcanwkrfcjeqqwlib.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_x-ocfhMqmjrjn44Via5c8w_t_ooGf74';
+const { createClient } = supabase;
+const db = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// Сохраняем/обновляем пользователя в базе
+async function syncUser() {
+  if (!currentUser.id) return;
+  const { error } = await db.from('users').upsert({
+    id: currentUser.id,
+    name: currentUser.name,
+    username: currentUser.username,
+    photo_url: currentUser.photo
+  }, { onConflict: 'id' });
+  if (error) console.error('syncUser error:', error);
+}
+
+// Загружаем вопросы из базы
+async function loadQuestions() {
+  const { data, error } = await db
+    .from('questions')
+    .select('*, users(name)')
+    .eq('status', 'active')
+    .order('created_at', { ascending: false })
+    .limit(20);
+  if (error) { console.error('loadQuestions error:', error); return; }
+  if (data && data.length > 0) renderQuestions(data);
+}
+
+// Рендерим вопросы из базы в ленту
+function renderQuestions(questions) {
+  const feed = document.querySelector('.feed');
+  if (!feed) return;
+  // Очищаем статичные вопросы
+  feed.innerHTML = '';
+  questions.forEach(q => {
+    const total = q.votes_yes + q.votes_no;
+    const pctYes = total > 0 ? Math.round(q.votes_yes / total * 100) : 50;
+    const pctNo = 100 - pctYes;
+    const card = document.createElement('div');
+    card.className = 'q-card';
+    card.id = 'q-' + q.id;
+    card.innerHTML = `
+      <div class="q-meta">
+        <div class="q-topic economy">${q.topic}</div>
+        <div class="q-badge">💬 ${total} голосов</div>
+      </div>
+      <div class="q-text">${q.text}</div>
+      <div class="vote-section">
+        <div class="vote-bar-wrap"><div class="vote-bar-fill" style="width:${pctYes}%"></div></div>
+        <div class="vote-labels">
+          <span class="vote-yes">ДА — ${pctYes}%</span>
+          <span class="vote-no">НЕТ — ${pctNo}%</span>
+        </div>
+        <div class="vote-buttons">
+          <button class="btn-yes" onclick="voteQuestion('${q.id}','yes',this)">✓ ${q.option_yes}</button>
+          <button class="btn-no" onclick="voteQuestion('${q.id}','no',this)">✗ ${q.option_no}</button>
+        </div>
+        <div class="voted-result pending">⏳ Прогноз принят</div>
+      </div>
+      <div class="q-footer">
+        <span class="q-voters">👥 ${total} участников</span>
+        <span class="q-deadline">📅 ${q.closes_at ? new Date(q.closes_at).toLocaleDateString('ru') : 'Открыт'}</span>
+      </div>
+    `;
+    feed.appendChild(card);
+  });
+}
+
+// Голосуем за вопрос
+async function voteQuestion(questionId, choice, btn) {
+  if (!currentUser.id) { showToast('Открой через Telegram!'); return; }
+  const card = document.getElementById('q-' + questionId);
+  if (card.classList.contains('voted')) return;
+
+  // Сохраняем голос
+  const { error } = await db.from('votes').insert({
+    user_id: currentUser.id,
+    question_id: questionId,
+    choice: choice
+  });
+
+  if (error) {
+    if (error.code === '23505') showToast('Ты уже голосовал!');
+    else showToast('Ошибка: ' + error.message);
+    return;
+  }
+
+  // Обновляем счётчик
+  const field = choice === 'yes' ? 'votes_yes' : 'votes_no';
+  await db.rpc('increment_vote', { question_id: questionId, field_name: field });
+
+  card.classList.add('voted');
+  showToast('✅ Прогноз принят! +20 очков');
+}
+
+// Загружаем рейтинг
+async function loadRating() {
+  const { data, error } = await db
+    .from('users')
+    .select('id, name, username, points, correct, total')
+    .order('points', { ascending: false })
+    .limit(100);
+  if (error) { console.error('loadRating error:', error); return; }
+  if (data && data.length > 0) renderRating(data);
+}
+
+// Рендерим рейтинг
+function renderRating(users) {
+  const list = document.querySelector('.rating-list');
+  if (!list) return;
+  const medals = ['🥇', '🥈', '🥉'];
+  const emojis = ['🦁','🐺','🦊','🐻','🦅','🦋','🐯','🦄','🐉','🦩'];
+  list.innerHTML = '';
+
+  users.forEach((u, i) => {
+    const accuracy = u.total > 0 ? Math.round(u.correct / u.total * 100) : 0;
+    const isMe = u.id === currentUser.id;
+    const item = document.createElement('div');
+    item.className = 'rating-item' + (isMe ? ' me' : '');
+    item.innerHTML = `
+      <div class="rank ${i===0?'gold':i===1?'silver':i===2?'bronze':''}">${i < 3 ? medals[i] : i+1}</div>
+      <div class="avatar" style="${isMe ? 'background:linear-gradient(135deg,var(--accent),var(--green))' : ''}">${isMe ? '😎' : emojis[i % emojis.length]}</div>
+      <div class="rating-info">
+        <div class="rating-name">${isMe ? 'Ты' : u.name}</div>
+        <div class="rating-stats">${accuracy}% точность • ${u.total} прогнозов</div>
+      </div>
+      <div class="rating-points">${u.points}</div>
+    `;
+    list.appendChild(item);
+  });
+}
+
+// Сохраняем вопрос в базу
+async function saveQuestion(text, optYes, optNo, topic, closesAt) {
+  if (!currentUser.id) return null;
+  const { data, error } = await db.from('questions').insert({
+    author_id: currentUser.id,
+    text: text,
+    option_yes: optYes,
+    option_no: optNo,
+    topic: topic,
+    closes_at: closesAt || null,
+    status: 'active'
+  }).select().single();
+  if (error) { console.error('saveQuestion error:', error); return null; }
+  return data;
+}
+
 // Применяем данные пользователя к интерфейсу после загрузки
-window.addEventListener('DOMContentLoaded', () => {
-  // Обновляем имя в профиле
+window.addEventListener('DOMContentLoaded', async () => {
   const nameEl = document.getElementById('profile-name');
   if (nameEl) nameEl.textContent = currentUser.name || 'Пользователь';
-
-  // Обновляем аватар если есть фото
   const avatarEl = document.getElementById('profile-avatar');
   if (avatarEl && currentUser.photo) {
     avatarEl.innerHTML = `<img src="${currentUser.photo}" style="width:100%; height:100%; border-radius:50%; object-fit:cover;">`;
   }
-
-  // Обновляем имя в заголовке статистики
   const rankEl = document.getElementById('profile-rank-text');
   if (rankEl && currentUser.username) {
-    rankEl.textContent = `@${currentUser.username} • #4,821 в России`;
+    rankEl.textContent = `@${currentUser.username} • Загрузка рейтинга...`;
   }
+
+  // Синхронизируем пользователя и загружаем данные
+  await syncUser();
+  await loadQuestions();
 });
 
 // ONBOARDING
@@ -1502,19 +1647,33 @@ function updateCharCount(el, countId, max) {
   el2.style.color = count > max * 0.85 ? 'var(--red)' : 'var(--text2)';
 }
 
-function submitQuestion() {
+async function submitQuestion() {
   const q = document.getElementById('q-text').value.trim();
   const yes = document.getElementById('ans-yes').value.trim();
   const no = document.getElementById('ans-no').value.trim();
   const topicEl = document.querySelector('#topic-grid .topic-select-chip.active');
   const topic = topicEl ? topicEl.textContent : '⚽ Спорт';
+  const dateVal = document.getElementById('q-date').value;
+  const closesAt = dateVal ? new Date(dateVal).toISOString() : null;
 
-  // Add to feed
-  addQuestionToFeed(q, yes, no, topic);
-  // Add to my questions in profile
-  addToMyQuestions(q, yes, no, topic);
+  const btn = document.getElementById('create-submit-btn');
+  btn.textContent = 'Сохраняем...';
+  btn.disabled = true;
 
-  // Reset form
+  // Сохраняем в базу
+  const saved = await saveQuestion(q, yes, no, topic, closesAt);
+
+  if (saved) {
+    addToMyQuestions(q, yes, no, topic);
+    showToast('🎯 Вопрос создан! +50 очков');
+  } else {
+    // Если не авторизован — добавляем локально
+    addQuestionToFeed(q, yes, no, topic);
+    addToMyQuestions(q, yes, no, topic);
+    showToast('🎯 Вопрос добавлен локально');
+  }
+
+  // Сброс формы
   document.getElementById('q-text').value = '';
   document.getElementById('q-chars').textContent = '0 / 120';
   document.getElementById('ans-yes').value = 'Да';
@@ -1522,13 +1681,13 @@ function submitQuestion() {
   document.getElementById('preview-q-text').textContent = 'Введи вопрос выше...';
   document.getElementById('preview-yes').textContent = '✓ Да';
   document.getElementById('preview-no').textContent = '✗ Нет';
-  const btn = document.getElementById('create-submit-btn');
+  btn.textContent = 'Опубликовать вопрос →';
   btn.disabled = true;
   btn.style.opacity = '0.4';
   document.querySelectorAll('#topic-grid .topic-select-chip').forEach((c,i) => c.classList.toggle('active', i===0));
 
-  showToast('🎯 Вопрос создан! +50 очков');
   showScreen('feed');
+  await loadQuestions();
 }
 
 function addToMyQuestions(q, yes, no, topic) {
