@@ -853,7 +853,7 @@
 <body>
 
 <!-- ONBOARDING -->
-<div class="onboarding" id="onboarding">
+<div class="onboarding" id="onboarding" style="display:none">
 
   <!-- STEP 1: Welcome -->
   <div class="ob-step active" id="ob-step-1">
@@ -1590,7 +1590,6 @@ window.addEventListener('DOMContentLoaded', async () => {
   if (document.cookie.includes('insayt_ob=1')) needOnboarding = false;
 
   if (needOnboarding) {
-    // Показываем онбординг
     const ob = document.getElementById('onboarding');
     if (ob) ob.classList.add('show');
   }
