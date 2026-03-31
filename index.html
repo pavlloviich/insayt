@@ -986,7 +986,7 @@
 <div class="header">
   <div class="logo">ИНСАЙТ</div>
   <div class="stats-pill">
-    🏆 <strong>#4,821</strong> <span>из 31,204</span>
+    🏆 <strong id="user-rank">#—</strong> <span id="user-total">из —</span>
   </div>
 </div>
 
@@ -1436,6 +1436,46 @@ async function syncUser() {
   }
 }
 
+// Загружаем реальный рейтинг пользователя
+async function loadUserRank() {
+  if (!currentUser.id) return;
+
+  // Общее количество пользователей
+  const { count } = await db
+    .from('users')
+    .select('*', { count: 'exact', head: true });
+
+  // Место пользователя — считаем сколько людей набрали больше очков
+  const { data: userData } = await db
+    .from('users')
+    .select('points')
+    .eq('id', currentUser.id)
+    .single();
+
+  if (!userData) return;
+
+  const { count: above } = await db
+    .from('users')
+    .select('*', { count: 'exact', head: true })
+    .gt('points', userData.points);
+
+  const rank = (above || 0) + 1;
+  const total = count || 1;
+
+  // Обновляем шапку
+  const rankEl = document.getElementById('user-rank');
+  const totalEl = document.getElementById('user-total');
+  if (rankEl) rankEl.textContent = '#' + rank.toLocaleString('ru');
+  if (totalEl) totalEl.textContent = 'из ' + total.toLocaleString('ru');
+
+  // Обновляем профиль
+  const rankTextEl = document.getElementById('profile-rank-text');
+  if (rankTextEl) {
+    const prefix = currentUser.username ? `@${currentUser.username} • ` : '';
+    rankTextEl.textContent = `⚡ ${prefix}#${rank.toLocaleString('ru')} в России`;
+  }
+}
+
 // Загружаем вопросы из базы
 async function loadQuestions() {
   const { data, error } = await db
@@ -1597,6 +1637,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   // Синхронизируем пользователя и загружаем данные
   await syncUser();
   await loadQuestions();
+  await loadUserRank();
 });
 
 // ONBOARDING
