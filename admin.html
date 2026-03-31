@@ -67,6 +67,29 @@
   .pwd-row input { flex:1; padding:14px 18px; border:1.5px solid rgba(61,90,241,0.2); border-radius:14px; font-family:'Manrope',sans-serif; font-size:16px; outline:none; box-sizing:border-box; }
   .pwd-eye { background:#eef0f7; border:1.5px solid rgba(61,90,241,0.2); border-radius:12px; width:48px; height:48px; cursor:pointer; font-size:18px; flex-shrink:0; display:flex; align-items:center; justify-content:center; }
   .pwd-submit { width:100%; max-width:300px; padding:14px; background:linear-gradient(135deg,#3d5af1,#2541b2); color:white; border:none; border-radius:14px; font-family:'Manrope',sans-serif; font-size:16px; font-weight:800; cursor:pointer; }
+  /* COMMUNICATIONS TAB */
+  .comm-card { background:white; border:1px solid rgba(61,90,241,0.12); border-radius:16px; padding:18px; margin-bottom:14px; box-shadow:0 2px 12px rgba(61,90,241,0.06); }
+  .comm-card-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
+  .comm-card-title { font-size:15px; font-weight:800; display:flex; align-items:center; gap:8px; }
+  .comm-toggle { position:relative; width:44px; height:24px; flex-shrink:0; }
+  .comm-toggle input { opacity:0; width:0; height:0; }
+  .comm-toggle-slider { position:absolute; inset:0; background:#e0e3f0; border-radius:24px; cursor:pointer; transition:0.3s; }
+  .comm-toggle-slider:before { content:''; position:absolute; height:18px; width:18px; left:3px; bottom:3px; background:white; border-radius:50%; transition:0.3s; box-shadow:0 1px 4px rgba(0,0,0,0.2); }
+  .comm-toggle input:checked + .comm-toggle-slider { background:#3d5af1; }
+  .comm-toggle input:checked + .comm-toggle-slider:before { transform:translateX(20px); }
+  .comm-field { margin-bottom:12px; }
+  .comm-field label { display:block; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:1px; color:#7b82a0; margin-bottom:6px; }
+  .comm-field textarea, .comm-field input[type=number] { width:100%; padding:10px 14px; border:1.5px solid rgba(61,90,241,0.2); border-radius:12px; font-family:'Manrope',sans-serif; font-size:14px; font-weight:600; color:#1a1a2e; outline:none; background:#f5f6fa; transition:border-color 0.2s; resize:none; line-height:1.5; }
+  .comm-field textarea:focus, .comm-field input[type=number]:focus { border-color:#3d5af1; background:white; }
+  .comm-hint { font-size:11px; color:#7b82a0; margin-top:5px; line-height:1.5; }
+  .comm-hint code { background:#eef0f7; padding:1px 5px; border-radius:4px; font-size:11px; color:#3d5af1; font-weight:700; }
+  .btn-send-comm { width:100%; padding:12px; background:linear-gradient(135deg,#3d5af1,#2541b2); color:white; border:none; border-radius:12px; font-family:'Manrope',sans-serif; font-size:13px; font-weight:800; cursor:pointer; transition:all 0.2s; margin-top:4px; }
+  .btn-send-comm:hover { opacity:0.9; }
+  .btn-send-comm:active { transform:scale(0.98); }
+  .btn-send-comm:disabled { opacity:0.5; cursor:not-allowed; transform:none; }
+  .comm-preview { background:#1a1a2e; color:white; border-radius:14px; padding:14px 16px; margin-top:10px; font-size:13px; line-height:1.6; white-space:pre-wrap; display:none; }
+  .comm-preview.show { display:block; }
+
   .toast { position:fixed; bottom:30px; left:50%; transform:translateX(-50%); background:#1a1a2e; color:white; padding:12px 24px; border-radius:12px; font-size:14px; font-weight:600; opacity:0; transition:opacity 0.3s; pointer-events:none; white-space:nowrap; z-index:2000; }
   .toast.show { opacity:1; }
 </style>
@@ -99,6 +122,7 @@
   <div class="tabs">
     <button class="tab-btn active" id="tab-btn-questions" onclick="switchTab('questions', this)">📋 Вопросы</button>
     <button class="tab-btn" id="tab-btn-users" onclick="switchTab('users', this)">👥 Пользователи</button>
+    <button class="tab-btn" id="tab-btn-comms" onclick="switchTab('comms', this)">📣 Рассылки</button>
   </div>
 
   <div class="tab-content active" id="tab-questions">
@@ -112,6 +136,88 @@
     <input type="text" class="search-input" placeholder="🔍 Поиск по имени или @username" oninput="filterUsers(this.value)">
     <div id="users-list"><div class="loading">Загрузка...</div></div>
   </div>
+</div>
+
+<!-- TAB: COMMUNICATIONS -->
+<div class="tab-content" id="tab-comms">
+
+  <!-- Ручная рассылка -->
+  <div class="comm-card">
+    <div class="comm-card-header">
+      <div class="comm-card-title">📢 Ручная рассылка</div>
+    </div>
+    <div class="comm-field">
+      <label>Текст сообщения</label>
+      <textarea id="broadcast-text" rows="4" placeholder="Привет! Новый горячий вопрос уже ждёт тебя в ИНСАЙТ 🔮"></textarea>
+      <div class="comm-hint">Переменные: <code>{name}</code> — имя пользователя</div>
+    </div>
+    <div id="broadcast-preview" class="comm-preview"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px;">
+      <button class="btn-send-comm" style="background:#f5f6fa;color:#3d5af1;border:1.5px solid rgba(61,90,241,0.2);" onclick="previewBroadcast()">👁 Предпросмотр</button>
+      <button class="btn-send-comm" id="broadcast-btn" onclick="sendBroadcast()">📤 Отправить всем</button>
+    </div>
+    <div id="broadcast-status" style="font-size:12px;color:#7b82a0;margin-top:8px;text-align:center;"></div>
+  </div>
+
+  <!-- Триггер: новый пользователь -->
+  <div class="comm-card">
+    <div class="comm-card-header">
+      <div class="comm-card-title">👋 Приветствие новичка</div>
+      <label class="comm-toggle">
+        <input type="checkbox" id="trigger-welcome-enabled" checked onchange="saveTrigger('welcome')">
+        <span class="comm-toggle-slider"></span>
+      </label>
+    </div>
+    <div style="font-size:12px;color:#7b82a0;margin-bottom:12px;">Отправляется автоматически при первом запуске</div>
+    <div class="comm-field">
+      <label>Текст сообщения</label>
+      <textarea id="trigger-welcome-text" rows="3">Привет, {name}! 👋 Добро пожаловать в ИНСАЙТ — делай прогнозы и зарабатывай очки 🔮</textarea>
+      <div class="comm-hint">Переменные: <code>{name}</code></div>
+    </div>
+    <button class="btn-send-comm" onclick="saveTrigger('welcome')">💾 Сохранить</button>
+  </div>
+
+  <!-- Триггер: неактивность -->
+  <div class="comm-card">
+    <div class="comm-card-header">
+      <div class="comm-card-title">😴 Возврат неактивных</div>
+      <label class="comm-toggle">
+        <input type="checkbox" id="trigger-inactive-enabled" onchange="saveTrigger('inactive')">
+        <span class="comm-toggle-slider"></span>
+      </label>
+    </div>
+    <div style="font-size:12px;color:#7b82a0;margin-bottom:12px;">Отправляется если пользователь не заходил N дней</div>
+    <div style="display:grid;grid-template-columns:1fr 2fr;gap:10px;">
+      <div class="comm-field">
+        <label>Дней без входа</label>
+        <input type="number" id="trigger-inactive-days" value="3" min="1" max="30">
+      </div>
+      <div class="comm-field">
+        <label>Текст</label>
+        <textarea id="trigger-inactive-text" rows="2">{name}, давно не виделись! Новые прогнозы ждут тебя 🔮</textarea>
+      </div>
+    </div>
+    <button class="btn-send-comm" onclick="saveTrigger('inactive')">💾 Сохранить</button>
+  </div>
+
+  <!-- Триггер: итоги недели -->
+  <div class="comm-card">
+    <div class="comm-card-header">
+      <div class="comm-card-title">📊 Итоги недели</div>
+      <label class="comm-toggle">
+        <input type="checkbox" id="trigger-weekly-enabled" onchange="saveTrigger('weekly')">
+        <span class="comm-toggle-slider"></span>
+      </label>
+    </div>
+    <div style="font-size:12px;color:#7b82a0;margin-bottom:12px;">Отправляется каждое воскресенье</div>
+    <div class="comm-field">
+      <label>Текст</label>
+      <textarea id="trigger-weekly-text" rows="3">{name}, итоги недели: у тебя {points} очков и точность {accuracy}% 🏆 Продолжай в том же духе!</textarea>
+      <div class="comm-hint">Переменные: <code>{name}</code> <code>{points}</code> <code>{accuracy}</code> <code>{rank}</code></div>
+    </div>
+    <button class="btn-send-comm" onclick="saveTrigger('weekly')">💾 Сохранить</button>
+  </div>
+
 </div>
 
 <div class="modal-overlay" id="edit-modal">
@@ -332,6 +438,92 @@ function renderUsers(users) {
   });
 }
 
+// ============ COMMUNICATIONS ============
+
+const BOT_TOKEN_KEY = 'insayt_bot_token';
+const BOT_TOKEN = '7770068012:AAFqw1AmmkpOEH_Rm2mI7sGNTEH_MCi3-K8';
+
+// Предпросмотр рассылки
+function previewBroadcast() {
+  const text = document.getElementById('broadcast-text').value.trim();
+  if (!text) { showToast('⚠️ Введи текст сообщения'); return; }
+  const preview = document.getElementById('broadcast-preview');
+  const sample = text.replace(/{name}/g, 'Антон');
+  preview.textContent = sample;
+  preview.classList.add('show');
+}
+
+// Ручная рассылка всем пользователям
+async function sendBroadcast() {
+  const text = document.getElementById('broadcast-text').value.trim();
+  if (!text) { showToast('⚠️ Введи текст сообщения'); return; }
+  if (!confirm(`Отправить сообщение всем пользователям?`)) return;
+
+  const btn = document.getElementById('broadcast-btn');
+  const status = document.getElementById('broadcast-status');
+  btn.disabled = true;
+  btn.textContent = '⏳ Отправляем...';
+
+  // Получаем всех пользователей с Telegram ID
+  const { data: users } = await db.from('users').select('id, name').not('id', 'is', null);
+  if (!users || !users.length) { showToast('❌ Нет пользователей'); btn.disabled=false; btn.textContent='📤 Отправить всем'; return; }
+
+  let sent = 0, failed = 0;
+  for (const user of users) {
+    const msg = text.replace(/{name}/g, user.name || 'Привет');
+    try {
+      const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chat_id: user.id, text: msg, parse_mode: 'HTML' })
+      });
+      const d = await res.json();
+      if (d.ok) sent++; else failed++;
+    } catch(e) { failed++; }
+    status.textContent = `Отправлено: ${sent}, ошибок: ${failed} из ${users.length}`;
+  }
+
+  btn.disabled = false;
+  btn.textContent = '📤 Отправить всем';
+  showToast(`✅ Рассылка завершена: ${sent} доставлено, ${failed} ошибок`);
+}
+
+// Сохранение настроек триггера в localStorage
+function saveTrigger(type) {
+  const enabled = document.getElementById(`trigger-${type}-enabled`).checked;
+  const text = document.getElementById(`trigger-${type}-text`).value.trim();
+  const days = type === 'inactive' ? document.getElementById('trigger-inactive-days').value : null;
+
+  const cfg = { enabled, text };
+  if (days) cfg.days = parseInt(days);
+
+  try {
+    localStorage.setItem(`insayt_trigger_${type}`, JSON.stringify(cfg));
+    showToast('✅ Настройки триггера сохранены');
+  } catch(e) {
+    showToast('❌ Ошибка сохранения');
+  }
+}
+
+// Загрузка настроек триггеров из localStorage
+function loadTriggers() {
+  ['welcome', 'inactive', 'weekly'].forEach(type => {
+    try {
+      const saved = localStorage.getItem(`insayt_trigger_${type}`);
+      if (!saved) return;
+      const cfg = JSON.parse(saved);
+      const enabledEl = document.getElementById(`trigger-${type}-enabled`);
+      const textEl = document.getElementById(`trigger-${type}-text`);
+      if (enabledEl) enabledEl.checked = cfg.enabled;
+      if (textEl && cfg.text) textEl.value = cfg.text;
+      if (type === 'inactive' && cfg.days) {
+        const daysEl = document.getElementById('trigger-inactive-days');
+        if (daysEl) daysEl.value = cfg.days;
+      }
+    } catch(e) {}
+  });
+}
+
 function showToast(msg) {
   const t = document.getElementById('toast');
   t.textContent = msg; t.classList.add('show');
@@ -348,6 +540,7 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('password-screen').style.display = 'none';
     document.getElementById('admin-content').style.display = 'block';
     loadAll();
+    loadTriggers();
   } else {
     document.getElementById('password-screen').style.display = 'flex';
   }
