@@ -1156,34 +1156,34 @@
 
   <div class="profile-grid">
     <div class="profile-stat">
-      <div class="profile-stat-val">340</div>
+      <div class="profile-stat-val" id="stat-points">—</div>
       <div class="profile-stat-label">Очки</div>
     </div>
     <div class="profile-stat">
-      <div class="profile-stat-val" style="color:var(--green)">67%</div>
+      <div class="profile-stat-val" id="stat-accuracy" style="color:var(--green)">—%</div>
       <div class="profile-stat-label">Точность</div>
     </div>
     <div class="profile-stat">
-      <div class="profile-stat-val">18</div>
+      <div class="profile-stat-val" id="stat-total">—</div>
       <div class="profile-stat-label">Прогнозов</div>
     </div>
     <div class="profile-stat">
-      <div class="profile-stat-val" style="color:var(--red)">12</div>
+      <div class="profile-stat-val" id="stat-correct" style="color:var(--red)">—</div>
       <div class="profile-stat-label">Правильно</div>
     </div>
     <div class="profile-stat">
-      <div class="profile-stat-val">3</div>
+      <div class="profile-stat-val" id="stat-questions">—</div>
       <div class="profile-stat-label">Вопросов</div>
     </div>
     <div class="profile-stat">
-      <div class="profile-stat-val" style="color:#fdcb6e">🔥7</div>
+      <div class="profile-stat-val" id="stat-streak" style="color:#fdcb6e">🔥—</div>
       <div class="profile-stat-label">Серия</div>
     </div>
   </div>
 
   <div style="margin:0 20px; padding:20px; background:var(--surface); border:1px solid var(--border); border-radius:16px; text-align:center; box-shadow:var(--shadow);">
     <div style="font-size:13px; color:var(--text2); margin-bottom:8px;">Ты точнее чем</div>
-    <div style="font-family:'Bebas Neue',sans-serif; font-size:48px; background:linear-gradient(135deg,var(--accent),var(--green)); -webkit-background-clip:text; -webkit-text-fill-color:transparent;">84%</div>
+    <div id="stat-better" style="font-family:'Bebas Neue',sans-serif; font-size:48px; background:linear-gradient(135deg,var(--accent),var(--green)); -webkit-background-clip:text; -webkit-text-fill-color:transparent;">—%</div>
     <div style="font-size:13px; color:var(--text2);">пользователей России</div>
   </div>
 
@@ -1191,43 +1191,7 @@
   <div style="padding:20px 20px 0;">
     <div class="section-title" style="padding:0 0 12px;">📋 Мои вопросы</div>
     <div id="my-questions-list" style="display:flex; flex-direction:column; gap:10px;">
-
-      <div style="background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:16px; box-shadow:var(--shadow);">
-        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
-          <div class="q-topic sport" style="font-size:10px;">⚽ Спорт</div>
-          <div style="font-size:11px; color:var(--text2);">👥 342 голоса</div>
-        </div>
-        <div style="font-size:14px; font-weight:700; color:var(--text); margin-bottom:10px; line-height:1.4;">Зенит выиграет чемпионат России 2025/26?</div>
-        <div style="display:flex; justify-content:space-between; align-items:center;">
-          <div style="font-size:12px; color:var(--green); font-weight:700;">ДА 44% · НЕТ 56%</div>
-          <div style="font-size:11px; color:var(--text2); background:var(--surface2); padding:4px 10px; border-radius:8px;">На модерации</div>
-        </div>
-      </div>
-
-      <div style="background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:16px; box-shadow:var(--shadow);">
-        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
-          <div class="q-topic culture" style="font-size:10px;">🎬 Культура</div>
-          <div style="font-size:11px; color:var(--text2);">👥 1,204 голоса</div>
-        </div>
-        <div style="font-size:14px; font-weight:700; color:var(--text); margin-bottom:10px; line-height:1.4;">Моргенштерн вернётся в Россию в 2026?</div>
-        <div style="display:flex; justify-content:space-between; align-items:center;">
-          <div style="font-size:12px; color:var(--green); font-weight:700;">ДА 38% · НЕТ 62%</div>
-          <div style="font-size:11px; color:var(--accent); background:rgba(61,90,241,0.08); padding:4px 10px; border-radius:8px;">Активен</div>
-        </div>
-      </div>
-
-      <div style="background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:16px; box-shadow:var(--shadow);">
-        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
-          <div class="q-topic economy" style="font-size:10px;">💰 Экономика</div>
-          <div style="font-size:11px; color:var(--text2);">👥 2,891 голос</div>
-        </div>
-        <div style="font-size:14px; font-weight:700; color:var(--text); margin-bottom:10px; line-height:1.4;">ЦБ снизит ставку до 15% к концу 2025?</div>
-        <div style="display:flex; justify-content:space-between; align-items:center;">
-          <div style="font-size:12px; color:var(--green); font-weight:700;">ДА 71% · НЕТ 29%</div>
-          <div style="font-size:11px; color:var(--green); background:rgba(10,191,126,0.08); padding:4px 10px; border-radius:8px;">✓ Ты угадал</div>
-        </div>
-      </div>
-
+      <div style="text-align:center; padding:30px; color:var(--text2); font-size:14px;">Загрузка...</div>
     </div>
   </div>
 </div>
@@ -1376,6 +1340,90 @@ async function syncUser() {
     try { localStorage.setItem('insayt_onboarding_done', '1'); } catch(e) {}
     try { document.cookie = 'insayt_ob=1; max-age=31536000; path=/'; } catch(e) {}
   }
+}
+
+// Загружаем данные профиля
+async function loadProfile() {
+  if (!currentUser.id) return;
+
+  // Данные пользователя
+  const { data: u } = await db
+    .from('users')
+    .select('points, correct, total, streak')
+    .eq('id', currentUser.id)
+    .single();
+
+  if (!u) return;
+
+  const accuracy = u.total > 0 ? Math.round(u.correct / u.total * 100) : 0;
+
+  document.getElementById('stat-points').textContent = u.points.toLocaleString('ru');
+  document.getElementById('stat-accuracy').textContent = accuracy + '%';
+  document.getElementById('stat-total').textContent = u.total;
+  document.getElementById('stat-correct').textContent = u.correct;
+  document.getElementById('stat-streak').textContent = '🔥' + (u.streak || 0);
+
+  // Количество созданных вопросов
+  const { count: qCount } = await db
+    .from('questions')
+    .select('*', { count: 'exact', head: true })
+    .eq('author_id', currentUser.id);
+  document.getElementById('stat-questions').textContent = qCount || 0;
+
+  // % лучше других
+  const { count: total } = await db
+    .from('users')
+    .select('*', { count: 'exact', head: true });
+  const { count: worse } = await db
+    .from('users')
+    .select('*', { count: 'exact', head: true })
+    .lt('points', u.points);
+  const betterThan = total > 1 ? Math.round((worse / (total - 1)) * 100) : 0;
+  document.getElementById('stat-better').textContent = betterThan + '%';
+
+  // Загружаем вопросы пользователя
+  const { data: myQ } = await db
+    .from('questions')
+    .select('*')
+    .eq('author_id', currentUser.id)
+    .order('created_at', { ascending: false });
+
+  if (myQ && myQ.length > 0) renderMyQuestions(myQ);
+}
+
+function renderMyQuestions(questions) {
+  const list = document.getElementById('my-questions-list');
+  if (!list) return;
+  list.innerHTML = '';
+
+  if (!questions || questions.length === 0) {
+    list.innerHTML = `
+      <div style="text-align:center; padding:30px 20px; color:var(--text2);">
+        <div style="font-size:36px; margin-bottom:12px;">💭</div>
+        <div style="font-size:14px; font-weight:600;">Ты ещё не создавал вопросов</div>
+        <div style="font-size:12px; margin-top:6px;">Перейди во вкладку "Вопрос" чтобы создать первый</div>
+      </div>`;
+    return;
+  }
+
+  questions.forEach(q => {
+    const total = q.votes_yes + q.votes_no;
+    const pctYes = total > 0 ? Math.round(q.votes_yes / total * 100) : 50;
+    const item = document.createElement('div');
+    item.style.cssText = 'background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:16px; box-shadow:var(--shadow);';
+    item.innerHTML = `
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
+        <div style="font-size:10px; font-weight:700; padding:3px 8px; border-radius:6px; background:rgba(61,90,241,0.1); color:var(--accent);">${q.topic}</div>
+        <div style="font-size:11px; color:var(--text2);">👥 ${total.toLocaleString('ru')} голосов</div>
+      </div>
+      <div style="font-size:14px; font-weight:700; color:var(--text); margin-bottom:10px; line-height:1.4;">${q.text}</div>
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <div style="font-size:12px; color:var(--text2); font-weight:600;">ДА ${pctYes}% · НЕТ ${100-pctYes}%</div>
+        <div style="font-size:11px; color:var(--accent); background:rgba(61,90,241,0.08); padding:4px 10px; border-radius:8px;">Активен</div>
+      </div>
+    `;
+    list.appendChild(item);
+  });
 }
 
 // Загружаем реальный рейтинг пользователя
@@ -1803,6 +1851,7 @@ function showScreen(name) {
   document.getElementById('nav-' + name).classList.add('active');
   // Загружаем данные при переключении
   if (name === 'rating') loadRating();
+  if (name === 'profile') loadProfile();
 }
 
 function vote(id, choice) {
