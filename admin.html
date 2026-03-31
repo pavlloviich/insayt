@@ -195,8 +195,21 @@
     justify-content: center;
   }
 
-  .resolved-yes { background: rgba(10,191,126,0.1); color: #0abf7e; }
-  .resolved-no { background: rgba(240,84,84,0.1); color: #f05454; }
+  .btn-delete {
+    width: 100%;
+    padding: 10px;
+    background: rgba(240,84,84,0.06);
+    color: #f05454;
+    border: 1.5px solid rgba(240,84,84,0.2);
+    border-radius: 12px;
+    font-family: 'Manrope', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .btn-delete:hover { background: rgba(240,84,84,0.15); }
+  .btn-delete:active { transform: scale(0.97); }
 
   .loading {
     text-align: center;
@@ -271,7 +284,10 @@
 <div id="password-screen" class="password-screen">
   <div style="font-size:40px;">🔐</div>
   <h2>ИНСАЙТ Админка</h2>
-  <input type="password" id="pwd-input" placeholder="Введи пароль" onkeydown="if(event.key==='Enter') checkPassword()">
+  <div style="display:flex; align-items:center; gap:8px; width:100%; max-width:300px;">
+    <input type="password" id="pwd-input" placeholder="Введи пароль" onkeydown="if(event.key==='Enter') checkPassword()" style="flex:1; padding:14px 18px; border:1.5px solid rgba(61,90,241,0.2); border-radius:14px; font-family:'Manrope',sans-serif; font-size:16px; outline:none; box-sizing:border-box;">
+    <button onclick="togglePassword()" id="pwd-eye" style="background:#eef0f7; border:1.5px solid rgba(61,90,241,0.2); border-radius:12px; width:48px; height:48px; cursor:pointer; font-size:18px; flex-shrink:0; display:flex; align-items:center; justify-content:center;">👁</button>
+  </div>
   <button onclick="checkPassword()">Войти</button>
 </div>
 
@@ -316,16 +332,38 @@ const ADMIN_PASSWORD = 'insayt2026';
 const { createClient } = supabase;
 const db = createClient(SUPABASE_URL, SUPABASE_KEY);
 
+function togglePassword() {
+  const input = document.getElementById('pwd-input');
+  const eye = document.getElementById('pwd-eye');
+  if (input.type === 'password') {
+    input.type = 'text';
+    eye.textContent = '🙈';
+  } else {
+    input.type = 'password';
+    eye.textContent = '👁';
+  }
+}
+
 function checkPassword() {
   const pwd = document.getElementById('pwd-input').value;
   if (pwd === ADMIN_PASSWORD) {
-    document.getElementById('password-screen').style.display = 'none';
-    document.getElementById('admin-content').style.display = 'block';
-    loadAll();
+    sessionStorage.setItem('insayt_admin', '1');
+    showAdmin();
   } else {
     showToast('❌ Неверный пароль');
   }
 }
+
+function showAdmin() {
+  document.getElementById('password-screen').style.display = 'none';
+  document.getElementById('admin-content').style.display = 'block';
+  loadAll();
+}
+
+// Проверяем при загрузке
+window.addEventListener('DOMContentLoaded', () => {
+  if (sessionStorage.getItem('insayt_admin') === '1') showAdmin();
+});
 
 async function loadAll() {
   await Promise.all([loadStats(), loadQuestions()]);
@@ -394,11 +432,13 @@ function renderList(containerId, questions, isResolved) {
         <div class="resolved-badge ${q.status === 'resolved_yes' ? 'resolved-yes' : 'resolved-no'}">
           ${q.status === 'resolved_yes' ? '✅ Сбылось' : '❌ Не сбылось'}
         </div>
+        <button class="btn-delete" onclick="deleteQuestion('${q.id}', this)" style="margin-top:10px;">🗑 Удалить вопрос</button>
       ` : `
         <div class="actions">
           <button class="btn-yes" onclick="resolve('${q.id}', 'resolved_yes', this)">✅ Сбылось</button>
           <button class="btn-no" onclick="resolve('${q.id}', 'resolved_no', this)">❌ Не сбылось</button>
         </div>
+        <button class="btn-delete" onclick="deleteQuestion('${q.id}', this)" style="margin-top:10px;">🗑 Удалить вопрос</button>
       `}
     `;
     container.appendChild(card);
@@ -435,6 +475,28 @@ async function resolve(id, result, btn) {
     btn.textContent = result === 'resolved_yes' ? '✅ Сбылось' : '❌ Не сбылось';
     btn.disabled = false;
   }
+}
+
+async function deleteQuestion(id, btn) {
+  if (!confirm('Удалить вопрос? Все голоса тоже удалятся.')) return;
+
+  btn.textContent = '⏳ Удаляем...';
+  btn.disabled = true;
+
+  // Сначала удаляем голоса
+  await db.from('votes').delete().eq('question_id', id);
+  // Потом удаляем вопрос
+  const { error } = await db.from('questions').delete().eq('id', id);
+
+  if (error) {
+    showToast('❌ Ошибка: ' + error.message);
+    btn.textContent = '🗑 Удалить вопрос';
+    btn.disabled = false;
+    return;
+  }
+
+  showToast('🗑 Вопрос удалён');
+  await loadAll();
 }
 
 function showToast(msg) {
