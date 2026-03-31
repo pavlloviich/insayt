@@ -254,6 +254,52 @@
   .vote-yes { color: var(--green); }
   .vote-no { color: var(--red); }
 
+  /* Новые блоки с процентами */
+  .vote-blocks {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+  .vote-block-yes {
+    background: rgba(10,191,126,0.08);
+    border-radius: 12px;
+    padding: 10px 8px;
+    text-align: center;
+  }
+  .vote-block-no {
+    background: rgba(240,84,84,0.08);
+    border-radius: 12px;
+    padding: 10px 8px;
+    text-align: center;
+  }
+  .vote-block-pct {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 24px;
+    letter-spacing: 1px;
+    line-height: 1;
+    margin-bottom: 3px;
+  }
+  .vote-block-yes .vote-block-pct { color: var(--green); }
+  .vote-block-no  .vote-block-pct { color: var(--red); }
+  .vote-block-label { font-size: 11px; font-weight: 700; color: var(--text2); }
+
+  /* Новый футер карточки */
+  .q-card-body { padding: 16px 16px 12px; }
+  .q-card-footer-bar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 9px 16px;
+    background: var(--surface2);
+    border-top: 1px solid var(--border);
+  }
+  .live-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--green); display: inline-block;
+    margin-right: 4px;
+    animation: livePulse 2s infinite;
+  }
+  @keyframes livePulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
   .vote-buttons {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -1396,7 +1442,7 @@
     </div>
     <div style="background:var(--surface); border:1px solid var(--border); border-radius:20px; padding:18px; box-shadow:var(--shadow);">
       <div class="section-title" style="padding:0 0 12px;">🏷 Тема</div>
-      <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px;" id="topic-grid">
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;" id="topic-grid">
         <div class="topic-select-chip" onclick="selectTopic(this)">🏛 Политика</div>
         <div class="topic-select-chip" onclick="selectTopic(this)">₿ Крипта</div>
         <div class="topic-select-chip" onclick="selectTopic(this)">💻 Технологии</div>
@@ -1947,27 +1993,31 @@ function renderQuestions(questions) {
 
     // Блок голосования — разный для активных и завершённых
     const voteBlock = isResolved ? `
-      <div style="margin-top:12px; padding:12px 14px; border-radius:12px; background:${resolvedYes ? 'rgba(10,191,126,0.1)' : 'rgba(240,84,84,0.1)'}; border:1.5px solid ${resolvedYes ? 'rgba(10,191,126,0.3)' : 'rgba(240,84,84,0.3)'}; display:flex; align-items:center; gap:10px;">
-        <div style="font-size:20px;">${resolvedYes ? '✅' : '❌'}</div>
+      <div style="padding:10px 12px;border-radius:12px;background:${resolvedYes?'rgba(10,191,126,0.08)':'rgba(240,84,84,0.08)'};border:1.5px solid ${resolvedYes?'rgba(10,191,126,0.25)':'rgba(240,84,84,0.25)'};display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+        <div style="font-size:18px;">${resolvedYes?'✅':'❌'}</div>
         <div>
-          <div style="font-size:13px; font-weight:800; color:${resolvedYes ? 'var(--green)' : 'var(--red)'};">${resolvedYes ? 'Событие случилось!' : 'Событие не случилось'}</div>
-          <div style="font-size:11px; color:var(--text2); margin-top:2px;">Правильный ответ: ${resolvedYes ? q.option_yes : q.option_no}</div>
+          <div style="font-size:13px;font-weight:800;color:${resolvedYes?'var(--green)':'var(--red)'};">${resolvedYes?'Событие случилось!':'Событие не случилось'}</div>
+          <div style="font-size:11px;color:var(--text2);margin-top:1px;">Верный ответ: ${resolvedYes?q.option_yes:q.option_no}</div>
         </div>
       </div>
-      <div style="margin-top:10px;">
-        <div class="vote-bar-wrap"><div class="vote-bar-fill" style="width:${pctYes}%"></div></div>
-        <div class="vote-labels">
-          <span class="vote-yes">ДА — ${pctYes}%</span>
-          <span class="vote-no">НЕТ — ${pctNo}%</span>
-        </div>
-      </div>
-    ` : `
       <div class="vote-bar-wrap"><div class="vote-bar-fill" style="width:${pctYes}%"></div></div>
       <div class="vote-labels">
-        <span class="vote-yes">ДА — ${pctYes}%</span>
-        <span class="vote-no">НЕТ — ${pctNo}%</span>
+        <span class="vote-yes">✓ ${q.option_yes} ${pctYes}%</span>
+        <span class="vote-no">✗ ${q.option_no} ${pctNo}%</span>
       </div>
-      <div class="vote-buttons">
+    ` : `
+      <div class="vote-blocks">
+        <div class="vote-block-yes">
+          <div class="vote-block-pct">${pctYes}%</div>
+          <div class="vote-block-label">${q.option_yes}</div>
+        </div>
+        <div class="vote-block-no">
+          <div class="vote-block-pct">${pctNo}%</div>
+          <div class="vote-block-label">${q.option_no}</div>
+        </div>
+      </div>
+      <div class="vote-bar-wrap"><div class="vote-bar-fill" style="width:${pctYes}%"></div></div>
+      <div class="vote-buttons" onclick="event.stopPropagation()">
         <button class="btn-yes" onclick="voteQuestion('${q.id}','yes',this)">✓ ${q.option_yes}</button>
         <button class="btn-no" onclick="voteQuestion('${q.id}','no',this)">✗ ${q.option_no}</button>
       </div>
@@ -1975,15 +2025,19 @@ function renderQuestions(questions) {
     `;
 
     card.innerHTML = `
-      <div class="q-meta">
-        <div class="q-topic economy">${q.topic}</div>
-        <div class="q-badge">${isResolved ? '🏁 Завершён' : '💬 ' + total + ' голосов'}</div>
+      <div class="q-card-body" onclick="openQuestionDetail('${q.id}')" style="cursor:pointer;">
+        <div class="q-meta">
+          <div class="q-topic economy">${q.topic}</div>
+          <div class="q-badge" style="display:flex;align-items:center;gap:5px;">
+            ${isResolved ? '🏁 Завершён' : '<span class="live-dot"></span>' + total + ' голосов'}
+          </div>
+        </div>
+        <div class="q-text">${q.text}</div>
+        <div class="vote-section">${voteBlock}</div>
       </div>
-      <div class="q-text" onclick="openQuestionDetail('${q.id}')" style="cursor:pointer;">${q.text}</div>
-      <div class="vote-section">${voteBlock}</div>
-      <div class="q-footer" onclick="openQuestionDetail('${q.id}')" style="cursor:pointer;">
-        <span class="q-voters">👥 ${total} участников</span>
-        <span style="display:flex;align-items:center;gap:6px;">${isResolved ? '<span style="color:var(--text2);font-size:11px;">✓ Результат известен</span>' : '<span style="color:var(--text2);font-size:11px;">📅 ' + (q.closes_at ? new Date(q.closes_at).toLocaleDateString('ru') : 'Открыт') + '</span>'} <span onclick="event.stopPropagation();openQuestionDetail('${q.id}')" style="display:inline-flex;align-items:center;gap:4px;background:rgba(61,90,241,0.08);color:var(--accent);font-size:12px;font-weight:700;padding:4px 10px;border-radius:20px;cursor:pointer;">💬 комментарии</span></span>
+      <div class="q-card-footer-bar" onclick="openQuestionDetail('${q.id}')" style="cursor:pointer;">
+        <span style="font-size:11px;color:var(--text2);">👥 ${total} · ${isResolved ? '✓ Завершён' : '📅 ' + (q.closes_at ? new Date(q.closes_at).toLocaleDateString('ru') : 'Открыт')}</span>
+        <span onclick="event.stopPropagation();openQuestionDetail('${q.id}')" style="display:inline-flex;align-items:center;gap:4px;background:rgba(61,90,241,0.1);color:var(--accent);font-size:12px;font-weight:700;padding:5px 12px;border-radius:20px;cursor:pointer;">💬 Обсудить</span>
       </div>
     `;
     feed.appendChild(card);
