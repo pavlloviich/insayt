@@ -1744,8 +1744,8 @@ window.addEventListener('DOMContentLoaded', async () => {
 
   const ob = document.getElementById('onboarding');
   if (ob && !ob.classList.contains('show')) {
-    // syncUser уже скрыл или не показал — не трогаем
-    if (needOnboarding && currentUser.id) {
+    // Показываем если нужен онбординг — даже без currentUser.id (браузер без Telegram)
+    if (needOnboarding) {
       ob.classList.add('show');
     }
   }
