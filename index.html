@@ -1139,68 +1139,10 @@
 <div class="screen" id="screen-rating">
   <div style="padding: 20px 20px 10px;">
     <div style="font-family:'Bebas Neue',sans-serif; font-size:32px; letter-spacing:2px; margin-bottom:4px;">Рейтинг России</div>
-    <div style="font-size:12px; color:var(--text2);">31,204 участника • Обновляется в реальном времени</div>
+    <div style="font-size:12px; color:var(--text2);" id="rating-subtitle">Загрузка...</div>
   </div>
-
-  <div class="rating-list pb-100">
-    <div class="rating-item">
-      <div class="rank gold">1</div>
-      <div class="avatar">🦁</div>
-      <div class="rating-info">
-        <div class="rating-name">Дмитрий К.</div>
-        <div class="rating-stats">94% точность • 47 прогнозов</div>
-      </div>
-      <div class="rating-points">2,840</div>
-    </div>
-    <div class="rating-item">
-      <div class="rank silver">2</div>
-      <div class="avatar">🐺</div>
-      <div class="rating-info">
-        <div class="rating-name">Анна М.</div>
-        <div class="rating-stats">91% точность • 52 прогноза</div>
-      </div>
-      <div class="rating-points">2,610</div>
-    </div>
-    <div class="rating-item">
-      <div class="rank bronze">3</div>
-      <div class="avatar">🦊</div>
-      <div class="rating-info">
-        <div class="rating-name">Сергей Р.</div>
-        <div class="rating-stats">89% точность • 61 прогноз</div>
-      </div>
-      <div class="rating-points">2,480</div>
-    </div>
-    <div class="rating-item">
-      <div class="rank">4</div>
-      <div class="avatar">🐻</div>
-      <div class="rating-info">
-        <div class="rating-name">Алексей В.</div>
-        <div class="rating-stats">87% точность • 38 прогнозов</div>
-      </div>
-      <div class="rating-points">2,190</div>
-    </div>
-    <div class="rating-item">
-      <div class="rank">5</div>
-      <div class="avatar">🦅</div>
-      <div class="rating-info">
-        <div class="rating-name">Мария П.</div>
-        <div class="rating-stats">85% точность • 44 прогноза</div>
-      </div>
-      <div class="rating-points">1,980</div>
-    </div>
-
-    <!-- divider -->
-    <div style="text-align:center; padding: 10px; color: var(--text2); font-size:12px;">• • •</div>
-
-    <div class="rating-item me">
-      <div class="rank" style="color:var(--accent2)">4,821</div>
-      <div class="avatar" style="background:linear-gradient(135deg,var(--accent),var(--green))">😎</div>
-      <div class="rating-info">
-        <div class="rating-name">Ты</div>
-        <div class="rating-stats">67% точность • 18 прогнозов</div>
-      </div>
-      <div class="rating-points">340</div>
-    </div>
+  <div class="rating-list pb-100" id="rating-list">
+    <div style="text-align:center; padding:40px; color:var(--text2);">Загружаем рейтинг...</div>
   </div>
 </div>
 
@@ -1557,24 +1499,29 @@ async function voteQuestion(questionId, choice, btn) {
 
 // Загружаем рейтинг
 async function loadRating() {
-  const { data, error } = await db
+  const { data, count, error } = await db
     .from('users')
-    .select('id, name, username, points, correct, total')
+    .select('id, name, username, points, correct, total', { count: 'exact' })
     .order('points', { ascending: false })
     .limit(100);
   if (error) { console.error('loadRating error:', error); return; }
-  if (data && data.length > 0) renderRating(data);
+  if (data) renderRating(data, count || data.length);
 }
 
 // Рендерим рейтинг
-function renderRating(users) {
-  const list = document.querySelector('.rating-list');
+function renderRating(users, total) {
+  const list = document.getElementById('rating-list');
+  const subtitle = document.getElementById('rating-subtitle');
   if (!list) return;
-  const medals = ['🥇', '🥈', '🥉'];
+
+  if (subtitle) subtitle.textContent = `${total.toLocaleString('ru')} участников • Обновляется в реальном времени`;
+
+  const medals = ['🥇','🥈','🥉'];
   const emojis = ['🦁','🐺','🦊','🐻','🦅','🦋','🐯','🦄','🐉','🦩'];
   list.innerHTML = '';
 
-  users.forEach((u, i) => {
+  // Топ пользователи
+  users.slice(0, 10).forEach((u, i) => {
     const accuracy = u.total > 0 ? Math.round(u.correct / u.total * 100) : 0;
     const isMe = u.id === currentUser.id;
     const item = document.createElement('div');
@@ -1586,10 +1533,37 @@ function renderRating(users) {
         <div class="rating-name">${isMe ? 'Ты' : u.name}</div>
         <div class="rating-stats">${accuracy}% точность • ${u.total} прогнозов</div>
       </div>
-      <div class="rating-points">${u.points}</div>
+      <div class="rating-points">${u.points.toLocaleString('ru')}</div>
     `;
     list.appendChild(item);
   });
+
+  // Если пользователь не в топ-10 — добавляем его отдельно внизу
+  const meInTop = users.slice(0, 10).some(u => u.id === currentUser.id);
+  if (!meInTop && currentUser.id) {
+    const divider = document.createElement('div');
+    divider.style.cssText = 'text-align:center; padding:10px; color:var(--text2); font-size:12px;';
+    divider.textContent = '• • •';
+    list.appendChild(divider);
+
+    const meData = users.find(u => u.id === currentUser.id);
+    if (meData) {
+      const myRank = users.findIndex(u => u.id === currentUser.id) + 1;
+      const accuracy = meData.total > 0 ? Math.round(meData.correct / meData.total * 100) : 0;
+      const meItem = document.createElement('div');
+      meItem.className = 'rating-item me';
+      meItem.innerHTML = `
+        <div class="rank" style="color:var(--accent)">${myRank}</div>
+        <div class="avatar" style="background:linear-gradient(135deg,var(--accent),var(--green))">😎</div>
+        <div class="rating-info">
+          <div class="rating-name">Ты</div>
+          <div class="rating-stats">${accuracy}% точность • ${meData.total} прогнозов</div>
+        </div>
+        <div class="rating-points">${meData.points.toLocaleString('ru')}</div>
+      `;
+      list.appendChild(meItem);
+    }
+  }
 }
 
 // Сохраняем вопрос в базу
@@ -1825,6 +1799,8 @@ function showScreen(name) {
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   document.getElementById('screen-' + name).classList.add('active');
   document.getElementById('nav-' + name).classList.add('active');
+  // Загружаем данные при переключении
+  if (name === 'rating') loadRating();
 }
 
 function vote(id, choice) {
