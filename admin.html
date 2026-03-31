@@ -362,7 +362,14 @@ function showAdmin() {
 
 // Проверяем при загрузке
 window.addEventListener('DOMContentLoaded', () => {
-  if (sessionStorage.getItem('insayt_admin') === '1') showAdmin();
+  const params = new URLSearchParams(window.location.search);
+  const token = params.get('token');
+  if (token === ADMIN_PASSWORD || sessionStorage.getItem('insayt_admin') === '1') {
+    sessionStorage.setItem('insayt_admin', '1');
+    document.getElementById('password-screen').style.display = 'none';
+    document.getElementById('admin-content').style.display = 'block';
+    loadAll();
+  }
 });
 
 async function loadAll() {
