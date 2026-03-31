@@ -1338,12 +1338,16 @@ async function syncUser() {
 
   if (error) { console.error('syncUser error:', error); return; }
 
-  // Если онбординг уже пройден в базе — скрываем и сохраняем локально
+  const ob = document.getElementById('onboarding');
   if (data?.onboarding_done) {
-    const ob = document.getElementById('onboarding');
+    // Онбординг уже пройден — скрываем и кешируем локально
     if (ob) ob.classList.remove('show');
     try { localStorage.setItem('insayt_onboarding_done', '1'); } catch(e) {}
+    try { localStorage.setItem('insayt_ob_' + currentUser.id, '1'); } catch(e) {}
     try { document.cookie = 'insayt_ob=1; max-age=31536000; path=/'; } catch(e) {}
+  } else {
+    // Онбординг не пройден — показываем
+    if (ob) ob.classList.add('show');
   }
 }
 
@@ -1681,21 +1685,23 @@ window.addEventListener('DOMContentLoaded', async () => {
     rankEl.textContent = `@${currentUser.username} • Загрузка рейтинга...`;
   }
 
-  // Проверяем нужен ли онбординг
+  // Синхронизируем пользователя — он сам решает про онбординг на основе БД
+  await syncUser();
+
+  // Если syncUser не скрыл онбординг (нет id или БД не ответила) — проверяем локально
   const key = 'insayt_ob_' + (currentUser.id || 'guest');
   let needOnboarding = true;
-
   try { if (localStorage.getItem(key) || localStorage.getItem('insayt_onboarding_done')) needOnboarding = false; } catch(e) {}
   try { if (sessionStorage.getItem('insayt_ob')) needOnboarding = false; } catch(e) {}
   if (document.cookie.includes('insayt_ob=1')) needOnboarding = false;
 
-  if (needOnboarding) {
-    const ob = document.getElementById('onboarding');
-    if (ob) ob.classList.add('show');
+  const ob = document.getElementById('onboarding');
+  if (ob && !ob.classList.contains('show')) {
+    // syncUser уже скрыл или не показал — не трогаем
+    if (needOnboarding && currentUser.id) {
+      ob.classList.add('show');
+    }
   }
-
-  // Синхронизируем пользователя и загружаем данные
-  await syncUser();
   await loadQuestions();
   await loadUserRank();
   renderMyQuestions([]); // показываем пустое состояние сразу
