@@ -90,46 +90,6 @@
   .comm-preview { background:#1a1a2e; color:white; border-radius:14px; padding:14px 16px; margin-top:10px; font-size:13px; line-height:1.6; white-space:pre-wrap; display:none; }
   .comm-preview.show { display:block; }
 
-  /* Topic chips в модалке редактирования */
-  .topic-chips { display:flex; flex-wrap:wrap; gap:8px; }
-  .topic-chip-edit {
-    padding:7px 14px; border-radius:20px; font-size:13px; font-weight:700;
-    cursor:pointer; transition:all 0.15s;
-    background:#f5f6fa; color:#7b82a0;
-    border:1.5px solid #e0e3f0;
-  }
-  .topic-chip-edit.active {
-    background:rgba(61,90,241,0.1); color:#3d5af1;
-    border-color:rgba(61,90,241,0.3);
-  }
-  .topic-chip-edit:active { transform:scale(0.95); }
-
-  /* Карточка пользователя с кнопкой удаления */
-  .btn-delete-user {
-    margin-top:10px; width:100%; padding:9px;
-    background:rgba(240,84,84,0.06); color:#f05454;
-    border:1.5px solid rgba(240,84,84,0.2); border-radius:10px;
-    font-family:'Manrope',sans-serif; font-size:12px; font-weight:700;
-    cursor:pointer; transition:all 0.15s; display:block;
-  }
-  .btn-delete-user:hover { background:rgba(240,84,84,0.15); }
-
-  /* Точечный пуш */
-  .push-row { display:grid; grid-template-columns:1fr auto; gap:8px; margin-bottom:10px; }
-  .push-select {
-    padding:10px 14px; border:1.5px solid rgba(61,90,241,0.2); border-radius:12px;
-    font-family:'Manrope',sans-serif; font-size:13px; outline:none;
-    background:#f5f6fa; color:#1a1a2e;
-  }
-  .push-select:focus { border-color:#3d5af1; }
-  .btn-push-send {
-    padding:10px 16px; background:linear-gradient(135deg,#3d5af1,#2541b2);
-    color:white; border:none; border-radius:12px;
-    font-family:'Manrope',sans-serif; font-size:13px; font-weight:800;
-    cursor:pointer; white-space:nowrap;
-  }
-  .btn-push-send:disabled { opacity:0.5; cursor:not-allowed; }
-
   .toast { position:fixed; bottom:30px; left:50%; transform:translateX(-50%); background:#1a1a2e; color:white; padding:12px 24px; border-radius:12px; font-size:14px; font-weight:600; opacity:0; transition:opacity 0.3s; pointer-events:none; white-space:nowrap; z-index:2000; }
   .toast.show { opacity:1; }
 </style>
@@ -197,25 +157,6 @@
       <button class="btn-send-comm" id="broadcast-btn" onclick="sendBroadcast()">📤 Отправить всем</button>
     </div>
     <div id="broadcast-status" style="font-size:12px;color:#7b82a0;margin-top:8px;text-align:center;"></div>
-  </div>
-
-  <!-- Точечный пуш (тест) -->
-  <div class="comm-card">
-    <div class="comm-card-header">
-      <div class="comm-card-title">🎯 Точечный пуш</div>
-    </div>
-    <div style="font-size:12px;color:#7b82a0;margin-bottom:12px;">Отправить сообщение конкретному пользователю для теста</div>
-    <div class="push-row">
-      <select id="push-user-select" class="push-select">
-        <option value="">Выбери пользователя...</option>
-      </select>
-    </div>
-    <div class="comm-field">
-      <label>Текст сообщения</label>
-      <textarea id="push-text" rows="2" placeholder="Тестовое сообщение..."></textarea>
-    </div>
-    <button class="btn-send-comm" id="push-send-btn" onclick="sendPushToUser()">🎯 Отправить</button>
-    <div id="push-status" style="font-size:12px;color:#7b82a0;margin-top:8px;text-align:center;"></div>
   </div>
 
   <!-- Триггер: новый пользователь -->
@@ -286,17 +227,7 @@
     <div class="field"><label>Вопрос</label><textarea id="edit-text" rows="3"></textarea></div>
     <div class="field"><label>Вариант ДА</label><input type="text" id="edit-yes"></div>
     <div class="field"><label>Вариант НЕТ</label><input type="text" id="edit-no"></div>
-    <div class="field">
-      <label>Тема</label>
-      <input type="hidden" id="edit-topic">
-      <div class="topic-chips" id="edit-topic-chips">
-        <div class="topic-chip-edit" data-topic="🏛 Политика" onclick="selectEditTopic(this)">🏛 Политика</div>
-        <div class="topic-chip-edit" data-topic="₿ Крипта" onclick="selectEditTopic(this)">₿ Крипта</div>
-        <div class="topic-chip-edit" data-topic="💻 Технологии" onclick="selectEditTopic(this)">💻 Технологии</div>
-        <div class="topic-chip-edit" data-topic="💰 Экономика" onclick="selectEditTopic(this)">💰 Экономика</div>
-        <div class="topic-chip-edit" data-topic="✏️ Другое" onclick="selectEditTopic(this)">✏️ Другое</div>
-      </div>
-    </div>
+    <div class="field"><label>Тема</label><input type="text" id="edit-topic"></div>
     <div class="field"><label>Дата закрытия</label><input type="date" id="edit-date"></div>
     <div class="modal-actions">
       <button class="btn-cancel" onclick="closeModal()">Отмена</button>
@@ -341,7 +272,6 @@ function switchTab(name, btn) {
   document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
   document.getElementById('tab-' + name).classList.add('active');
   btn.classList.add('active');
-  if (name === 'comms') loadUsersForPush();
 }
 
 async function loadAll() {
@@ -432,8 +362,8 @@ function openEdit(id, text, optYes, optNo, topic, date) {
   document.getElementById('edit-text').value = text.replace(/&quot;/g,'"');
   document.getElementById('edit-yes').value = optYes;
   document.getElementById('edit-no').value = optNo;
+  document.getElementById('edit-topic').value = topic;
   document.getElementById('edit-date').value = date;
-  highlightEditTopic(topic);
   document.getElementById('edit-modal').classList.add('open');
 }
 
@@ -502,8 +432,7 @@ function renderUsers(users) {
         <div style="background:#f5f6fa;border-radius:10px;padding:8px;text-align:center;"><div style="font-weight:700;color:#2541b2;">${u.total||0}</div><div style="color:#7b82a0;">прогнозов</div></div>
         <div style="background:#f5f6fa;border-radius:10px;padding:8px;text-align:center;"><div style="font-weight:700;color:#fdcb6e;">🔥${u.streak||0}</div><div style="color:#7b82a0;">серия</div></div>
       </div>
-      <div style="font-size:11px;color:#7b82a0;margin-bottom:8px;">Темы: <span style="color:#3d5af1;font-weight:600;">${topics}</span> · Онбординг: <span style="color:${u.onboarding_done?'#0abf7e':'#f05454'};font-weight:600;">${u.onboarding_done?'✅':'❌'}</span></div>
-      <button class="btn-delete-user" onclick="deleteUser(${u.id},'${(u.name||'').replace(/'/g,'\\'')}',this)">🗑 Удалить пользователя</button>
+      <div style="font-size:11px;color:#7b82a0;">Темы: <span style="color:#3d5af1;font-weight:600;">${topics}</span> · Онбординг: <span style="color:${u.onboarding_done?'#0abf7e':'#f05454'};font-weight:600;">${u.onboarding_done?'✅':'❌'}</span></div>
     `;
     container.appendChild(card);
   });
@@ -593,101 +522,6 @@ function loadTriggers() {
       }
     } catch(e) {}
   });
-}
-
-// ===== 1. ВЫБОР ТЕМЫ В РЕДАКТОРЕ =====
-function selectEditTopic(el) {
-  document.querySelectorAll('.topic-chip-edit').forEach(c => c.classList.remove('active'));
-  el.classList.add('active');
-  document.getElementById('edit-topic').value = el.getAttribute('data-topic');
-}
-
-// При открытии модалки — подсвечиваем текущую тему
-function highlightEditTopic(topic) {
-  document.querySelectorAll('.topic-chip-edit').forEach(c => {
-    c.classList.toggle('active', c.getAttribute('data-topic') === topic);
-  });
-  document.getElementById('edit-topic').value = topic;
-}
-
-// ===== 2. УДАЛЕНИЕ ПОЛЬЗОВАТЕЛЯ =====
-async function deleteUser(userId, userName, btn) {
-  if (!confirm(`Удалить пользователя «${userName}»?\nВсе его голоса, вопросы и подписки тоже удалятся. Это необратимо.`)) return;
-  btn.textContent = '⏳ Удаляем...';
-  btn.disabled = true;
-
-  // Удаляем зависимые данные
-  await Promise.all([
-    db.from('votes').delete().eq('user_id', userId),
-    db.from('follows').delete().eq('follower_id', userId),
-    db.from('follows').delete().eq('following_id', userId),
-    db.from('comments').delete().eq('user_id', userId),
-  ]);
-  // Удаляем вопросы пользователя (каскадно удалятся голоса)
-  const { data: userQ } = await db.from('questions').select('id').eq('author_id', userId);
-  if (userQ && userQ.length) {
-    const qIds = userQ.map(q => q.id);
-    await db.from('votes').delete().in('question_id', qIds);
-    await db.from('questions').delete().eq('author_id', userId);
-  }
-  // Удаляем самого пользователя
-  const { error } = await db.from('users').delete().eq('id', userId);
-  if (error) {
-    showToast('❌ Ошибка: ' + error.message);
-    btn.textContent = '🗑 Удалить пользователя';
-    btn.disabled = false;
-    return;
-  }
-  showToast(`🗑 Пользователь «${userName}» удалён`);
-  await loadAll();
-}
-
-// ===== 3. ТОЧЕЧНЫЙ ПУШ =====
-async function loadUsersForPush() {
-  const select = document.getElementById('push-user-select');
-  if (!select || select.options.length > 1) return; // уже загружено
-  const { data } = await db.from('users').select('id, name, username').order('name');
-  if (!data) return;
-  data.forEach(u => {
-    const opt = document.createElement('option');
-    opt.value = u.id;
-    opt.textContent = `${u.name || 'Без имени'}${u.username ? ' (@' + u.username + ')' : ''}`;
-    select.appendChild(opt);
-  });
-}
-
-async function sendPushToUser() {
-  const userId = document.getElementById('push-user-select').value;
-  const text = document.getElementById('push-text').value.trim();
-  const btn = document.getElementById('push-send-btn');
-  const status = document.getElementById('push-status');
-
-  if (!userId) { showToast('⚠️ Выбери пользователя'); return; }
-  if (!text) { showToast('⚠️ Введи текст сообщения'); return; }
-
-  btn.disabled = true;
-  btn.textContent = '⏳ Отправляем...';
-  status.textContent = '';
-
-  try {
-    const res = await fetch('https://insayt.vercel.app/api/broadcast', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text, users: [{ id: parseInt(userId), name: '' }] })
-    });
-    const data = await res.json();
-    if (res.ok && data.sent > 0) {
-      status.textContent = '✅ Доставлено!';
-      showToast('✅ Пуш отправлен');
-    } else {
-      status.textContent = '❌ Не доставлено (бот заблокирован или ошибка)';
-      showToast('❌ Не доставлено');
-    }
-  } catch(e) {
-    status.textContent = '❌ Ошибка соединения';
-  }
-  btn.disabled = false;
-  btn.textContent = '🎯 Отправить';
 }
 
 function showToast(msg) {
