@@ -1334,7 +1334,7 @@ async function syncUser() {
     name: currentUser.name,
     username: currentUser.username,
     photo_url: currentUser.photo
-  }, { onConflict: 'id' }).select('onboarding_done').single();
+  }, { onConflict: 'id' }).select('onboarding_done, topics').single();
 
   if (error) { console.error('syncUser error:', error); return; }
 
@@ -1345,6 +1345,10 @@ async function syncUser() {
     try { localStorage.setItem('insayt_onboarding_done', '1'); } catch(e) {}
     try { localStorage.setItem('insayt_ob_' + currentUser.id, '1'); } catch(e) {}
     try { document.cookie = 'insayt_ob=1; max-age=31536000; path=/'; } catch(e) {}
+    // Применяем сохранённые темы как предустановленный фильтр
+    if (data.topics && data.topics.length > 0) {
+      window._userTopics = data.topics;
+    }
   } else {
     // Онбординг не пройден — показываем
     if (ob) ob.classList.add('show');
@@ -1495,7 +1499,42 @@ async function loadQuestions() {
     .order('created_at', { ascending: false })
     .limit(20);
   if (error) { console.error('loadQuestions error:', error); return; }
-  if (data && data.length > 0) renderQuestions(data);
+  if (data && data.length > 0) {
+    renderQuestions(data);
+    applyUserTopicsFilter();
+  }
+}
+
+// Применяем предустановленный фильтр по темам пользователя
+function applyUserTopicsFilter() {
+  const userTopics = window._userTopics;
+  if (!userTopics || userTopics.length === 0) return;
+
+  // Маппинг из ключей БД в текст чипов
+  const topicMap = {
+    'sport': 'Спорт',
+    'economy': 'Экономика',
+    'politics': 'Политика',
+    'culture': 'Культура',
+    'tech': 'Технологии'
+  };
+
+  // Найдём первый чип который есть в темах пользователя
+  const chips = document.querySelectorAll('.topic-chip');
+  let matched = null;
+  chips.forEach(chip => {
+    const label = chip.textContent.trim().replace(/^[^\s]+\s/, '').toLowerCase();
+    const hasMatch = userTopics.some(t => {
+      const mapped = (topicMap[t] || t).toLowerCase();
+      return label.includes(mapped.toLowerCase()) || mapped.includes(label);
+    });
+    if (hasMatch && !matched) matched = chip;
+  });
+
+  // Если нашли совпадение — активируем этот чип и фильтруем
+  if (matched) {
+    filterTopic(matched);
+  }
 }
 
 // Рендерим вопросы из базы в ленту
@@ -1744,9 +1783,12 @@ async function finishOnboarding() {
   try { sessionStorage.setItem('insayt_ob', '1'); } catch(e) {}
   try { document.cookie = 'insayt_ob=1; max-age=31536000; path=/'; } catch(e) {}
 
-  // Сохраняем в базу
-  if (currentUser.id) {
-    await db.from('users').update({ onboarding_done: true }).eq('id', currentUser.id);
+  // Сохраняем в базу вместе с выбранными темами
+  if (currentUser.id && db) {
+    await db.from('users').update({
+      onboarding_done: true,
+      topics: selectedTopics
+    }).eq('id', currentUser.id);
   }
 
   const ob = document.getElementById('onboarding');
