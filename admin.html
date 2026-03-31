@@ -405,24 +405,36 @@ function renderList(containerId, questions, isResolved) {
   });
 }
 
+const NOTIFY_URL = 'https://insayt.vercel.app/api/notify';
+
 async function resolve(id, result, btn) {
   btn.textContent = '⏳ Сохраняем...';
   btn.disabled = true;
 
-  const { error } = await db.rpc('resolve_question', {
-    q_id: id,
-    result: result
-  });
+  try {
+    const response = await fetch(NOTIFY_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question_id: id, result: result })
+    });
 
-  if (error) {
-    showToast('❌ Ошибка: ' + error.message);
+    const data = await response.json();
+
+    if (!response.ok) {
+      showToast('❌ Ошибка: ' + (data.error || 'неизвестная'));
+      btn.textContent = result === 'resolved_yes' ? '✅ Сбылось' : '❌ Не сбылось';
+      btn.disabled = false;
+      return;
+    }
+
+    showToast(`${result === 'resolved_yes' ? '✅ Сбылось' : '❌ Не сбылось'} — уведомлено ${data.sent} из ${data.total} участников`);
+    await loadAll();
+
+  } catch (e) {
+    showToast('❌ Ошибка соединения');
     btn.textContent = result === 'resolved_yes' ? '✅ Сбылось' : '❌ Не сбылось';
     btn.disabled = false;
-    return;
   }
-
-  showToast(result === 'resolved_yes' ? '✅ Отмечено как сбылось!' : '❌ Отмечено как не сбылось!');
-  await loadAll();
 }
 
 function showToast(msg) {
