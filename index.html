@@ -999,15 +999,15 @@
   <!-- USER CARD -->
   <div class="user-card">
     <div class="stat-item">
-      <div class="stat-value">340</div>
+      <div class="stat-value" id="feed-points">—</div>
       <div class="stat-label">Очки</div>
     </div>
     <div class="stat-item">
-      <div class="stat-value green">67%</div>
+      <div class="stat-value green" id="feed-accuracy">—%</div>
       <div class="stat-label">Точность</div>
     </div>
     <div class="stat-item">
-      <div class="stat-value">18</div>
+      <div class="stat-value" id="feed-total">—</div>
       <div class="stat-label">Прогнозов</div>
     </div>
   </div>
@@ -1190,9 +1190,7 @@
   <!-- Мои вопросы -->
   <div style="padding:20px 20px 0;">
     <div class="section-title" style="padding:0 0 12px;">📋 Мои вопросы</div>
-    <div id="my-questions-list" style="display:flex; flex-direction:column; gap:10px;">
-      <div style="text-align:center; padding:30px; color:var(--text2); font-size:14px;">Загрузка...</div>
-    </div>
+    <div id="my-questions-list" style="display:flex; flex-direction:column; gap:10px;"></div>
   </div>
 </div>
 
@@ -1357,6 +1355,13 @@ async function loadProfile() {
 
   const accuracy = u.total > 0 ? Math.round(u.correct / u.total * 100) : 0;
 
+  const feedPoints = document.getElementById('feed-points');
+  const feedAccuracy = document.getElementById('feed-accuracy');
+  const feedTotal = document.getElementById('feed-total');
+  if (feedPoints) feedPoints.textContent = u.points.toLocaleString('ru');
+  if (feedAccuracy) feedAccuracy.textContent = accuracy + '%';
+  if (feedTotal) feedTotal.textContent = u.total;
+
   document.getElementById('stat-points').textContent = u.points.toLocaleString('ru');
   document.getElementById('stat-accuracy').textContent = accuracy + '%';
   document.getElementById('stat-total').textContent = u.total;
@@ -1398,10 +1403,13 @@ function renderMyQuestions(questions) {
 
   if (!questions || questions.length === 0) {
     list.innerHTML = `
-      <div style="text-align:center; padding:30px 20px; color:var(--text2);">
-        <div style="font-size:36px; margin-bottom:12px;">💭</div>
-        <div style="font-size:14px; font-weight:600;">Ты ещё не создавал вопросов</div>
-        <div style="font-size:12px; margin-top:6px;">Перейди во вкладку "Вопрос" чтобы создать первый</div>
+      <div style="text-align:center; padding:30px 20px; background:var(--surface); border:1.5px dashed var(--border); border-radius:20px; box-shadow:var(--shadow);">
+        <div style="font-size:40px; margin-bottom:12px;">🔮</div>
+        <div style="font-size:15px; font-weight:700; color:var(--text); margin-bottom:6px;">Задай первый вопрос</div>
+        <div style="font-size:13px; color:var(--text2); margin-bottom:20px; line-height:1.5;">Создай вопрос — другие проголосуют,<br>а ты узнаешь кто оказался прав</div>
+        <button onclick="showScreen('add')" style="padding:13px 28px; background:linear-gradient(135deg,var(--accent),#2541b2); border:none; border-radius:14px; color:white; font-family:'Manrope',sans-serif; font-size:14px; font-weight:800; cursor:pointer; box-shadow:0 6px 20px rgba(61,90,241,0.3);">
+          ➕ Создать вопрос
+        </button>
       </div>`;
     return;
   }
@@ -1471,7 +1479,7 @@ async function loadQuestions() {
   const { data, error } = await db
     .from('questions')
     .select('*, users(name)')
-    .eq('status', 'active')
+    .in('status', ['active', 'resolved_yes', 'resolved_no'])
     .order('created_at', { ascending: false })
     .limit(20);
   if (error) { console.error('loadQuestions error:', error); return; }
@@ -1482,36 +1490,57 @@ async function loadQuestions() {
 function renderQuestions(questions) {
   const feed = document.querySelector('.feed');
   if (!feed) return;
-  // Очищаем статичные вопросы
   feed.innerHTML = '';
   questions.forEach(q => {
     const total = q.votes_yes + q.votes_no;
     const pctYes = total > 0 ? Math.round(q.votes_yes / total * 100) : 50;
     const pctNo = 100 - pctYes;
+    const isResolved = q.status === 'resolved_yes' || q.status === 'resolved_no';
+    const resolvedYes = q.status === 'resolved_yes';
+
     const card = document.createElement('div');
-    card.className = 'q-card';
+    card.className = 'q-card' + (isResolved ? ' voted' : '');
     card.id = 'q-' + q.id;
-    card.innerHTML = `
-      <div class="q-meta">
-        <div class="q-topic economy">${q.topic}</div>
-        <div class="q-badge">💬 ${total} голосов</div>
+
+    // Блок голосования — разный для активных и завершённых
+    const voteBlock = isResolved ? `
+      <div style="margin-top:12px; padding:12px 14px; border-radius:12px; background:${resolvedYes ? 'rgba(10,191,126,0.1)' : 'rgba(240,84,84,0.1)'}; border:1.5px solid ${resolvedYes ? 'rgba(10,191,126,0.3)' : 'rgba(240,84,84,0.3)'}; display:flex; align-items:center; gap:10px;">
+        <div style="font-size:20px;">${resolvedYes ? '✅' : '❌'}</div>
+        <div>
+          <div style="font-size:13px; font-weight:800; color:${resolvedYes ? 'var(--green)' : 'var(--red)'};">${resolvedYes ? 'Событие случилось!' : 'Событие не случилось'}</div>
+          <div style="font-size:11px; color:var(--text2); margin-top:2px;">Правильный ответ: ${resolvedYes ? q.option_yes : q.option_no}</div>
+        </div>
       </div>
-      <div class="q-text">${q.text}</div>
-      <div class="vote-section">
+      <div style="margin-top:10px;">
         <div class="vote-bar-wrap"><div class="vote-bar-fill" style="width:${pctYes}%"></div></div>
         <div class="vote-labels">
           <span class="vote-yes">ДА — ${pctYes}%</span>
           <span class="vote-no">НЕТ — ${pctNo}%</span>
         </div>
-        <div class="vote-buttons">
-          <button class="btn-yes" onclick="voteQuestion('${q.id}','yes',this)">✓ ${q.option_yes}</button>
-          <button class="btn-no" onclick="voteQuestion('${q.id}','no',this)">✗ ${q.option_no}</button>
-        </div>
-        <div class="voted-result pending">⏳ Прогноз принят</div>
       </div>
+    ` : `
+      <div class="vote-bar-wrap"><div class="vote-bar-fill" style="width:${pctYes}%"></div></div>
+      <div class="vote-labels">
+        <span class="vote-yes">ДА — ${pctYes}%</span>
+        <span class="vote-no">НЕТ — ${pctNo}%</span>
+      </div>
+      <div class="vote-buttons">
+        <button class="btn-yes" onclick="voteQuestion('${q.id}','yes',this)">✓ ${q.option_yes}</button>
+        <button class="btn-no" onclick="voteQuestion('${q.id}','no',this)">✗ ${q.option_no}</button>
+      </div>
+      <div class="voted-result pending">⏳ Прогноз принят</div>
+    `;
+
+    card.innerHTML = `
+      <div class="q-meta">
+        <div class="q-topic economy">${q.topic}</div>
+        <div class="q-badge">${isResolved ? '🏁 Завершён' : '💬 ' + total + ' голосов'}</div>
+      </div>
+      <div class="q-text">${q.text}</div>
+      <div class="vote-section">${voteBlock}</div>
       <div class="q-footer">
         <span class="q-voters">👥 ${total} участников</span>
-        <span class="q-deadline">📅 ${q.closes_at ? new Date(q.closes_at).toLocaleDateString('ru') : 'Открыт'}</span>
+        <span class="q-deadline">${isResolved ? '✓ Результат известен' : '📅 ' + (q.closes_at ? new Date(q.closes_at).toLocaleDateString('ru') : 'Открыт')}</span>
       </div>
     `;
     feed.appendChild(card);
@@ -1660,6 +1689,8 @@ window.addEventListener('DOMContentLoaded', async () => {
   await syncUser();
   await loadQuestions();
   await loadUserRank();
+  renderMyQuestions([]); // показываем пустое состояние сразу
+  loadProfile(); // загружаем реальные данные асинхронно
 });
 
 // ONBOARDING
@@ -1866,7 +1897,21 @@ function vote(id, choice) {
 function filterTopic(el) {
   document.querySelectorAll('.topic-chip').forEach(c => c.classList.remove('active'));
   el.classList.add('active');
-  showToast('Фильтр: ' + el.textContent);
+
+  const topic = el.textContent.trim();
+  const cards = document.querySelectorAll('.q-card');
+
+  cards.forEach(card => {
+    if (topic.includes('Все')) {
+      card.style.display = '';
+    } else {
+      const cardTopic = card.querySelector('.q-topic')?.textContent?.trim() || '';
+      // Сравниваем по ключевому слову темы
+      const topicKey = topic.replace(/^[^\s]+\s/, '').toLowerCase();
+      const cardKey = cardTopic.replace(/^[^\s]+\s/, '').toLowerCase();
+      card.style.display = cardKey.includes(topicKey) ? '' : 'none';
+    }
+  });
 }
 
 function showToast(msg) {
