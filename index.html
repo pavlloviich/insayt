@@ -1272,7 +1272,7 @@
     <div style="background:var(--surface); border:1px solid var(--border); border-radius:20px; padding:18px; box-shadow:var(--shadow);">
       <div class="section-title" style="padding:0 0 12px;">🏷 Тема</div>
       <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px;" id="topic-grid">
-        <div class="topic-select-chip active" onclick="selectTopic(this)">⚽ Спорт</div>
+        <div class="topic-select-chip" onclick="selectTopic(this)">⚽ Спорт</div>
         <div class="topic-select-chip" onclick="selectTopic(this)">💰 Экономика</div>
         <div class="topic-select-chip" onclick="selectTopic(this)">🏛 Политика</div>
         <div class="topic-select-chip" onclick="selectTopic(this)">🎬 Культура</div>
@@ -1664,9 +1664,10 @@ async function finishOnboarding() {
 
 // CREATE QUESTION - now works as a tab screen
 function selectTopic(el) {
-  el.classList.toggle('active');
-  const active = document.querySelectorAll('#topic-grid .topic-select-chip.active');
-  if (active.length === 0) el.classList.add('active');
+  // Одиночный выбор — снимаем все, ставим на выбранный
+  document.querySelectorAll('#topic-grid .topic-select-chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  updatePreview();
 }
 
 function updatePreview() {
@@ -1677,13 +1678,14 @@ function updatePreview() {
   const q = qEl.value.trim();
   const yes = yesEl ? yesEl.value.trim() : 'Да';
   const no = noEl ? noEl.value.trim() : 'Нет';
+  const topicSelected = !!document.querySelector('#topic-grid .topic-select-chip.active');
   const pq = document.getElementById('preview-q-text');
   const py = document.getElementById('preview-yes');
   const pn = document.getElementById('preview-no');
   if (pq) pq.textContent = q || 'Введи вопрос выше...';
   if (py) py.textContent = '✓ ' + (yes || 'Да');
   if (pn) pn.textContent = '✗ ' + (no || 'Нет');
-  const valid = q.length >= 10 && yes.length > 0 && no.length > 0;
+  const valid = q.length >= 10 && yes.length > 0 && no.length > 0 && topicSelected;
   const btn = document.getElementById('create-submit-btn');
   if (btn) {
     btn.disabled = !valid;
@@ -1737,7 +1739,7 @@ async function submitQuestion() {
   btn.textContent = 'Опубликовать вопрос →';
   btn.disabled = true;
   btn.style.opacity = '0.4';
-  document.querySelectorAll('#topic-grid .topic-select-chip').forEach((c,i) => c.classList.toggle('active', i===0));
+  document.querySelectorAll('#topic-grid .topic-select-chip').forEach(c => c.classList.remove('active'));
 
   showScreen('feed');
   await loadQuestions();
