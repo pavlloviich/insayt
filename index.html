@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>ИНСАЙТ</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" onerror="console.error('Supabase failed to load')"></script>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
   :root {
@@ -45,6 +45,7 @@
     z-index: 100;
     background: rgba(245,246,250,0.95);
     backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
     border-bottom: 1px solid var(--border);
   }
 
@@ -355,6 +356,7 @@
     max-width: 430px;
     background: rgba(245,246,250,0.97);
     backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
     border-top: 1px solid var(--border);
     display: grid;
     grid-template-columns: repeat(4, 1fr);
@@ -1316,12 +1318,17 @@ if (tg) {
 // SUPABASE INIT
 const SUPABASE_URL = 'https://jnvlcanwkrfcjeqqwlib.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_x-ocfhMqmjrjn44Via5c8w_t_ooGf74';
-const { createClient } = supabase;
-const db = createClient(SUPABASE_URL, SUPABASE_KEY);
+let db;
+try {
+  const { createClient } = supabase;
+  db = createClient(SUPABASE_URL, SUPABASE_KEY);
+} catch(e) {
+  console.error('Supabase init error:', e);
+}
 
 // Сохраняем/обновляем пользователя в базе
 async function syncUser() {
-  if (!currentUser.id) return;
+  if (!currentUser.id || !db) return;
   const { data, error } = await db.from('users').upsert({
     id: currentUser.id,
     name: currentUser.name,
@@ -1342,7 +1349,7 @@ async function syncUser() {
 
 // Загружаем данные профиля
 async function loadProfile() {
-  if (!currentUser.id) return;
+  if (!currentUser.id || !db) return;
 
   // Данные пользователя
   const { data: u } = await db
@@ -1476,6 +1483,7 @@ async function loadUserRank() {
 
 // Загружаем вопросы из базы
 async function loadQuestions() {
+  if (!db) return;
   const { data, error } = await db
     .from('questions')
     .select('*, users(name)')
@@ -1549,7 +1557,7 @@ function renderQuestions(questions) {
 
 // Голосуем за вопрос
 async function voteQuestion(questionId, choice, btn) {
-  if (!currentUser.id) { showToast('Открой через Telegram!'); return; }
+  if (!currentUser.id || !db) { showToast('Открой через Telegram!'); return; }
   const card = document.getElementById('q-' + questionId);
   if (card.classList.contains('voted')) return;
 
@@ -1576,6 +1584,7 @@ async function voteQuestion(questionId, choice, btn) {
 
 // Загружаем рейтинг
 async function loadRating() {
+  if (!db) return;
   const { data, count, error } = await db
     .from('users')
     .select('id, name, username, points, correct, total', { count: 'exact' })
