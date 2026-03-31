@@ -1859,6 +1859,26 @@ async function submitQuestion() {
   btn.textContent = 'Сохраняем...';
   btn.disabled = true;
 
+  // Проверяем лимит — не более 3 вопросов в сутки
+  if (currentUser.id && db) {
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const { count } = await db
+      .from('questions')
+      .select('*', { count: 'exact', head: true })
+      .eq('author_id', currentUser.id)
+      .gte('created_at', todayStart.toISOString());
+
+    if (count >= 3) {
+      showToast('⛔ Лимит 3 вопроса в сутки исчерпан');
+      btn.textContent = 'Опубликовать вопрос →';
+      btn.disabled = false;
+      btn.style.opacity = '1';
+      btn.style.cursor = 'pointer';
+      return;
+    }
+  }
+
   // Сохраняем в базу
   const saved = await saveQuestion(q, yes, no, topic, closesAt);
 
@@ -1986,10 +2006,7 @@ function showToast(msg) {
   setTimeout(() => t.classList.remove('show'), 2500);
 }
 
-// simulate push after 4s
-setTimeout(() => {
-  showToast('🔔 Новый горячий вопрос о ключевой ставке ЦБ!');
-}, 4000);
+
 </script>
 </body>
 </html>
