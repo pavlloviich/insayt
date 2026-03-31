@@ -1713,6 +1713,14 @@ async function saveQuestion(text, optYes, optNo, topic, closesAt) {
 
 // Применяем данные пользователя к интерфейсу после загрузки
 window.addEventListener('DOMContentLoaded', async () => {
+  // Сброс онбординга по параметру URL (для тестирования)
+  const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.get('reset_ob') === '1') {
+    try { localStorage.removeItem('insayt_onboarding_done'); } catch(e) {}
+    try { localStorage.removeItem('insayt_ob_' + (currentUser.id || 'guest')); } catch(e) {}
+    try { sessionStorage.removeItem('insayt_ob'); } catch(e) {}
+    try { document.cookie = 'insayt_ob=; max-age=0; path=/'; } catch(e) {}
+  }
   const nameEl = document.getElementById('profile-name');
   if (nameEl) nameEl.textContent = currentUser.name || 'Пользователь';
   const avatarEl = document.getElementById('profile-avatar');
