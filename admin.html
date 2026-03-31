@@ -8,10 +8,13 @@
 <script>
 (function() {
   var params = new URLSearchParams(window.location.search);
-  if (params.get('token') === 'insayt2026' || sessionStorage.getItem('insayt_admin') === '1') {
-    sessionStorage.setItem('insayt_admin', '1');
+  var hasToken = params.get('token') === 'insayt2026';
+  var hasSession = false;
+  try { hasSession = sessionStorage.getItem('insayt_admin') === '1'; } catch(e) {}
+  if (hasToken || hasSession) {
+    try { sessionStorage.setItem('insayt_admin', '1'); } catch(e) {}
     var style = document.createElement('style');
-    style.textContent = '#password-screen { display: none !important; } #admin-content { display: block !important; }';
+    style.textContent = '#password-screen{display:none!important}#admin-content{display:block!important}';
     document.head.appendChild(style);
   }
 })();
