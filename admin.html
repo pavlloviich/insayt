@@ -5,6 +5,20 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ИНСАЙТ — Админка</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+// Мгновенная проверка токена до рендера страницы
+(function() {
+  var params = new URLSearchParams(window.location.search);
+  if (params.get('token') === 'insayt2026' || sessionStorage.getItem('insayt_admin') === '1') {
+    sessionStorage.setItem('insayt_admin', '1');
+    document.addEventListener('DOMContentLoaded', function() {
+      document.getElementById('password-screen').style.display = 'none';
+      document.getElementById('admin-content').style.display = 'block';
+      loadAll();
+    });
+  }
+})();
+</script>
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
 <style>
   * { margin:0; padding:0; box-sizing:border-box; }
