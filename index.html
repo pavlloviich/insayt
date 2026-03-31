@@ -520,6 +520,110 @@
   .follow-stat-val { font-family: 'Bebas Neue', sans-serif; font-size: 24px; color: var(--accent2); letter-spacing: 1px; }
   .follow-stat-label { font-size: 11px; color: var(--text2); text-transform: uppercase; letter-spacing: 0.5px; }
 
+  /* QUESTION DETAIL OVERLAY */
+  .q-detail-overlay {
+    position: fixed; inset: 0; z-index: 400;
+    background: #f5f6fa;
+    display: none; flex-direction: column;
+    overflow: hidden;
+  }
+  .q-detail-overlay.open { display: flex; }
+  .q-detail-header {
+    display: flex; align-items: center; gap: 12px;
+    padding: 14px 20px;
+    background: rgba(245,246,250,0.97);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+  }
+  .q-detail-back {
+    width: 36px; height: 36px; border-radius: 50%;
+    background: var(--surface2); border: none;
+    font-size: 18px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .q-detail-body {
+    flex: 1; overflow-y: auto;
+    padding: 20px 20px 120px;
+    display: flex; flex-direction: column; gap: 16px;
+  }
+  .q-detail-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 20px; padding: 18px;
+    box-shadow: var(--shadow);
+  }
+
+  /* COMMENTS */
+  .comments-section { display: flex; flex-direction: column; gap: 10px; }
+  .comment-item {
+    display: flex; gap: 10px;
+  }
+  .comment-avatar {
+    width: 32px; height: 32px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent), var(--green));
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; flex-shrink: 0; overflow: hidden;
+  }
+  .comment-bubble {
+    flex: 1; background: var(--surface);
+    border: 1px solid var(--border); border-radius: 14px;
+    padding: 10px 14px; box-shadow: 0 1px 6px rgba(61,90,241,0.05);
+  }
+  .comment-bubble.reply {
+    background: rgba(61,90,241,0.04);
+    border-color: rgba(61,90,241,0.15);
+  }
+  .comment-name { font-size: 12px; font-weight: 800; color: var(--accent2); margin-bottom: 3px; }
+  .comment-text { font-size: 14px; line-height: 1.5; color: var(--text); }
+  .comment-footer {
+    display: flex; align-items: center; gap: 12px;
+    margin-top: 6px;
+  }
+  .comment-time { font-size: 11px; color: var(--text2); }
+  .comment-reply-btn {
+    font-size: 11px; font-weight: 700; color: var(--accent);
+    background: none; border: none; cursor: pointer; padding: 0;
+  }
+  .reply-thread { margin-top: 8px; display: flex; flex-direction: column; gap: 8px; }
+
+  /* COMMENT INPUT */
+  .comment-input-bar {
+    position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
+    width: 100%; max-width: 430px;
+    background: rgba(245,246,250,0.97);
+    backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+    border-top: 1px solid var(--border);
+    padding: 10px 16px 28px;
+    display: flex; gap: 10px; align-items: flex-end;
+    z-index: 10;
+  }
+  .comment-input-wrap { flex: 1; }
+  .comment-reply-to {
+    font-size: 11px; color: var(--accent); font-weight: 700;
+    margin-bottom: 4px; display: none; cursor: pointer;
+  }
+  .comment-reply-to.show { display: block; }
+  .comment-textarea {
+    width: 100%; background: var(--surface2);
+    border: 1.5px solid var(--border); border-radius: 14px;
+    padding: 10px 14px; font-family: 'Manrope', sans-serif;
+    font-size: 14px; font-weight: 500; color: var(--text);
+    outline: none; resize: none; max-height: 100px;
+    line-height: 1.5; box-sizing: border-box;
+    transition: border-color 0.2s;
+  }
+  .comment-textarea:focus { border-color: var(--accent); background: white; }
+  .comment-send-btn {
+    width: 40px; height: 40px; border-radius: 50%; flex-shrink: 0;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border: none; color: white; font-size: 16px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 4px 12px rgba(61,90,241,0.3);
+    transition: all 0.2s;
+  }
+  .comment-send-btn:active { transform: scale(0.92); }
+
   /* USER PROFILE OVERLAY */
   .user-profile-overlay {
     position: fixed;
@@ -1510,6 +1614,42 @@
   </div>
 </div>
 
+<!-- QUESTION DETAIL OVERLAY -->
+<div class="q-detail-overlay" id="q-detail-overlay">
+  <div class="q-detail-header">
+    <button class="q-detail-back" onclick="closeQuestionDetail()">←</button>
+    <div style="flex:1; font-size:14px; font-weight:800; color:var(--text);" id="qd-topic">Вопрос</div>
+    <div style="font-size:12px; color:var(--text2);" id="qd-votes-count"></div>
+  </div>
+
+  <div class="q-detail-body" id="qd-body">
+    <!-- Карточка вопроса -->
+    <div class="q-detail-card" id="qd-card"></div>
+
+    <!-- Комментарии -->
+    <div>
+      <div style="font-size:12px; font-weight:800; text-transform:uppercase; letter-spacing:1px; color:var(--text2); margin-bottom:12px;">
+        💬 Комментарии <span id="qd-comments-count" style="color:var(--accent)"></span>
+      </div>
+      <div class="comments-section" id="qd-comments-list">
+        <div style="text-align:center; padding:20px; color:var(--text2);">Загрузка...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Поле ввода -->
+  <div class="comment-input-bar" id="comment-input-bar">
+    <div class="comment-input-wrap">
+      <div class="comment-reply-to" id="comment-reply-label" onclick="cancelReply()">
+        ↩ Ответ для <span id="comment-reply-name"></span> · отмена
+      </div>
+      <textarea class="comment-textarea" id="comment-textarea" placeholder="Написать комментарий..." rows="1"
+        oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,100)+'px'"></textarea>
+    </div>
+    <button class="comment-send-btn" onclick="submitComment()">➤</button>
+  </div>
+</div>
+
 <!-- USER PROFILE OVERLAY -->
 <div class="user-profile-overlay" id="user-profile-overlay">
   <div class="user-profile-header">
@@ -1901,11 +2041,11 @@ function renderQuestions(questions) {
         <div class="q-topic economy">${q.topic}</div>
         <div class="q-badge">${isResolved ? '🏁 Завершён' : '💬 ' + total + ' голосов'}</div>
       </div>
-      <div class="q-text">${q.text}</div>
+      <div class="q-text" onclick="openQuestionDetail('${q.id}')" style="cursor:pointer;">${q.text}</div>
       <div class="vote-section">${voteBlock}</div>
-      <div class="q-footer">
+      <div class="q-footer" onclick="openQuestionDetail('${q.id}')" style="cursor:pointer;">
         <span class="q-voters">👥 ${total} участников</span>
-        <span class="q-deadline">${isResolved ? '✓ Результат известен' : '📅 ' + (q.closes_at ? new Date(q.closes_at).toLocaleDateString('ru') : 'Открыт')}</span>
+        <span class="q-deadline" style="display:flex;align-items:center;gap:6px;">${isResolved ? '✓ Результат известен' : '📅 ' + (q.closes_at ? new Date(q.closes_at).toLocaleDateString('ru') : 'Открыт')} <span style="color:var(--accent);font-size:11px;font-weight:700;">💬 комментарии</span></span>
       </div>
     `;
     feed.appendChild(card);
@@ -2070,6 +2210,233 @@ window.addEventListener('DOMContentLoaded', async () => {
   renderMyQuestions([]); // показываем пустое состояние сразу
   loadProfile(); // загружаем реальные данные асинхронно
 });
+
+// ============ QUESTION DETAIL + COMMENTS ============
+let _qdQuestionId = null;
+let _qdReplyToId = null;
+let _qdQuestion = null;
+
+async function openQuestionDetail(questionId) {
+  _qdQuestionId = questionId;
+  _qdReplyToId = null;
+
+  const overlay = document.getElementById('q-detail-overlay');
+  overlay.classList.add('open');
+
+  // Сброс
+  document.getElementById('qd-card').innerHTML = '<div style="text-align:center;padding:20px;color:var(--text2);">Загрузка...</div>';
+  document.getElementById('qd-comments-list').innerHTML = '<div style="text-align:center;padding:20px;color:var(--text2);">Загрузка...</div>';
+  document.getElementById('comment-textarea').value = '';
+  cancelReply();
+
+  // Загружаем вопрос
+  const { data: q } = await db.from('questions').select('*').eq('id', questionId).single();
+  if (!q) return;
+  _qdQuestion = q;
+
+  const total = q.votes_yes + q.votes_no;
+  const pctYes = total > 0 ? Math.round(q.votes_yes / total * 100) : 50;
+  const pctNo = 100 - pctYes;
+  const isResolved = q.status === 'resolved_yes' || q.status === 'resolved_no';
+  const resolvedYes = q.status === 'resolved_yes';
+
+  document.getElementById('qd-topic').textContent = q.topic;
+  document.getElementById('qd-votes-count').textContent = `👥 ${total}`;
+
+  // Рендерим карточку вопроса
+  document.getElementById('qd-card').innerHTML = `
+    <div style="font-size:18px;font-weight:800;line-height:1.4;margin-bottom:16px;">${q.text}</div>
+    ${isResolved ? `
+      <div style="padding:12px 14px;border-radius:12px;background:${resolvedYes?'rgba(10,191,126,0.1)':'rgba(240,84,84,0.1)'};border:1.5px solid ${resolvedYes?'rgba(10,191,126,0.3)':'rgba(240,84,84,0.3)'};display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+        <div style="font-size:20px;">${resolvedYes?'✅':'❌'}</div>
+        <div>
+          <div style="font-size:13px;font-weight:800;color:${resolvedYes?'var(--green)':'var(--red)'};">${resolvedYes?'Событие случилось!':'Событие не случилось'}</div>
+          <div style="font-size:11px;color:var(--text2);margin-top:2px;">Правильный ответ: ${resolvedYes?q.option_yes:q.option_no}</div>
+        </div>
+      </div>` : ''}
+    <div style="height:6px;background:var(--surface2);border-radius:6px;margin-bottom:8px;overflow:hidden;">
+      <div style="height:100%;width:${pctYes}%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:6px;"></div>
+    </div>
+    <div style="display:flex;justify-content:space-between;margin-bottom:${isResolved?'0':'14px'};font-size:12px;font-weight:700;">
+      <span style="color:var(--green);">✓ ${q.option_yes} — ${pctYes}%</span>
+      <span style="color:var(--red);">✗ ${q.option_no} — ${pctNo}%</span>
+    </div>
+    ${!isResolved ? `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;" id="qd-vote-btns">
+      <button onclick="voteFromDetail('yes')" style="padding:12px;background:rgba(10,191,126,0.1);color:var(--green);border:1.5px solid rgba(10,191,126,0.3);border-radius:12px;font-family:'Manrope',sans-serif;font-size:14px;font-weight:800;cursor:pointer;">✓ ${q.option_yes}</button>
+      <button onclick="voteFromDetail('no')" style="padding:12px;background:rgba(240,84,84,0.1);color:var(--red);border:1.5px solid rgba(240,84,84,0.3);border-radius:12px;font-family:'Manrope',sans-serif;font-size:14px;font-weight:800;cursor:pointer;">✗ ${q.option_no}</button>
+    </div>` : ''}
+  `;
+
+  // Если уже голосовал — скрываем кнопки
+  if (!isResolved && currentUser.id && db) {
+    const { data: myVote } = await db.from('votes').select('choice').eq('user_id', currentUser.id).eq('question_id', questionId).maybeSingle();
+    if (myVote) {
+      const btns = document.getElementById('qd-vote-btns');
+      if (btns) btns.innerHTML = `<div style="text-align:center;padding:10px;color:var(--accent2);font-weight:700;font-size:13px;grid-column:1/-1;">⏳ Твой прогноз: ${myVote.choice==='yes'?q.option_yes:q.option_no}</div>`;
+    }
+  }
+
+  // Загружаем комментарии
+  await loadComments();
+}
+
+async function voteFromDetail(choice) {
+  const q = _qdQuestion;
+  if (!q || !currentUser.id || !db) return;
+  const btns = document.getElementById('qd-vote-btns');
+  if (btns) btns.style.opacity = '0.5';
+
+  const { error } = await db.from('votes').insert({ user_id: currentUser.id, question_id: q.id, choice });
+  if (error) {
+    if (error.code === '23505') showToast('Ты уже голосовал!');
+    else showToast('Ошибка: ' + error.message);
+    if (btns) btns.style.opacity = '1';
+    return;
+  }
+  const field = choice === 'yes' ? 'votes_yes' : 'votes_no';
+  await db.rpc('increment_vote', { question_id: q.id, field_name: field });
+
+  // Обновляем карточку в ленте
+  const feedCard = document.getElementById('q-' + q.id);
+  if (feedCard) feedCard.classList.add('voted');
+
+  showToast('✅ Прогноз принят! +20 очков');
+  // Перезагружаем детальную карточку
+  openQuestionDetail(q.id);
+}
+
+function closeQuestionDetail() {
+  document.getElementById('q-detail-overlay').classList.remove('open');
+  _qdQuestionId = null;
+  _qdQuestion = null;
+  cancelReply();
+}
+
+async function loadComments() {
+  if (!_qdQuestionId || !db) return;
+  const list = document.getElementById('qd-comments-list');
+
+  const { data: comments } = await db
+    .from('comments')
+    .select('*, users(name, photo_url, username)')
+    .eq('question_id', _qdQuestionId)
+    .is('parent_id', null)
+    .order('created_at', { ascending: true });
+
+  const { data: replies } = await db
+    .from('comments')
+    .select('*, users(name, photo_url, username)')
+    .eq('question_id', _qdQuestionId)
+    .not('parent_id', 'is', null)
+    .order('created_at', { ascending: true });
+
+  const totalCount = (comments?.length || 0) + (replies?.length || 0);
+  document.getElementById('qd-comments-count').textContent = totalCount > 0 ? `(${totalCount})` : '';
+
+  if (!comments || comments.length === 0) {
+    list.innerHTML = `<div style="text-align:center;padding:30px;background:var(--surface);border:1.5px dashed var(--border);border-radius:16px;">
+      <div style="font-size:32px;margin-bottom:8px;">💬</div>
+      <div style="font-size:14px;font-weight:700;margin-bottom:4px;">Нет комментариев</div>
+      <div style="font-size:12px;color:var(--text2);">Будь первым!</div>
+    </div>`;
+    return;
+  }
+
+  list.innerHTML = '';
+  comments.forEach(c => {
+    const commentReplies = (replies || []).filter(r => r.parent_id === c.id);
+    list.appendChild(buildCommentEl(c, commentReplies));
+  });
+}
+
+function buildCommentEl(c, replies = []) {
+  const wrap = document.createElement('div');
+  wrap.className = 'comment-item';
+  const u = c.users || {};
+  const name = u.name || 'Пользователь';
+  const time = new Date(c.created_at).toLocaleString('ru', {day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
+
+  const avatarContent = u.photo_url
+    ? `<img src="${u.photo_url}" style="width:100%;height:100%;object-fit:cover;">`
+    : name[0];
+
+  wrap.innerHTML = `
+    <div class="comment-avatar">${avatarContent}</div>
+    <div style="flex:1;">
+      <div class="comment-bubble">
+        <div class="comment-name">${name}</div>
+        <div class="comment-text">${escapeHtml(c.text)}</div>
+        <div class="comment-footer">
+          <span class="comment-time">${time}</span>
+          <button class="comment-reply-btn" onclick="setReply('${c.id}','${escapeHtml(name)}')">↩ Ответить</button>
+        </div>
+      </div>
+      ${replies.length > 0 ? `<div class="reply-thread">${replies.map(r => {
+        const ru = r.users || {};
+        const rname = ru.name || 'Пользователь';
+        const rtime = new Date(r.created_at).toLocaleString('ru', {day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
+        const ravatarContent = ru.photo_url ? `<img src="${ru.photo_url}" style="width:100%;height:100%;object-fit:cover;">` : rname[0];
+        return `<div class="comment-item">
+          <div class="comment-avatar" style="width:26px;height:26px;font-size:11px;">${ravatarContent}</div>
+          <div style="flex:1;">
+            <div class="comment-bubble reply">
+              <div class="comment-name">${rname}</div>
+              <div class="comment-text">${escapeHtml(r.text)}</div>
+              <div class="comment-footer">
+                <span class="comment-time">${rtime}</span>
+                <button class="comment-reply-btn" onclick="setReply('${c.id}','${escapeHtml(rname)}')">↩ Ответить</button>
+              </div>
+            </div>
+          </div>
+        </div>`;
+      }).join('')}</div>` : ''}
+    </div>`;
+  return wrap;
+}
+
+function escapeHtml(text) {
+  return String(text).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function setReply(commentId, userName) {
+  _qdReplyToId = commentId;
+  const label = document.getElementById('comment-reply-label');
+  document.getElementById('comment-reply-name').textContent = userName;
+  label.classList.add('show');
+  document.getElementById('comment-textarea').focus();
+}
+
+function cancelReply() {
+  _qdReplyToId = null;
+  const label = document.getElementById('comment-reply-label');
+  if (label) label.classList.remove('show');
+}
+
+async function submitComment() {
+  if (!currentUser.id || !db) { showToast('Открой через Telegram!'); return; }
+  const text = document.getElementById('comment-textarea').value.trim();
+  if (!text) return;
+
+  const btn = document.querySelector('.comment-send-btn');
+  btn.disabled = true;
+
+  const { error } = await db.from('comments').insert({
+    question_id: _qdQuestionId,
+    user_id: currentUser.id,
+    parent_id: _qdReplyToId || null,
+    text
+  });
+
+  btn.disabled = false;
+
+  if (error) { showToast('❌ Ошибка: ' + error.message); return; }
+
+  document.getElementById('comment-textarea').value = '';
+  document.getElementById('comment-textarea').style.height = 'auto';
+  cancelReply();
+  await loadComments();
+}
 
 // ============ USER PROFILE (чужой профиль) ============
 let _upoUserId = null;
