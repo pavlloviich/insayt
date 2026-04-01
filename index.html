@@ -1877,120 +1877,119 @@ async function loadUserRank() {
   }
 }
 
+async function fetchFeedQuestions() {
+  const res = await fetch('/api/feed');
+  const data = await res.json();
+  if (!res.ok || !data.ok || !Array.isArray(data.questions)) {
+    throw new Error(data.error || 'feed load failed');
+  }
+  return data.questions;
+}
+
+let _feedQuestionsMap = new Map();
+
 // Загружаем вопросы из базы
 async function loadQuestions() {
-  if (!db) return;
-
-  // Показываем кэш мгновенно
   const CACHE_KEY = 'insayt_questions_cache';
   const CACHE_TTL = 60000; // 60 секунд
+
   try {
     const cached = localStorage.getItem(CACHE_KEY);
     if (cached) {
       const { data: cachedData, ts } = JSON.parse(cached);
       if (Date.now() - ts < CACHE_TTL && cachedData?.length > 0) {
+        _feedQuestionsMap = new Map(cachedData.map(q => [q.id, q]));
         renderQuestionsFromCache(cachedData);
       }
     }
   } catch(e) {}
 
-  const { data, error } = await db
-    .from('questions')
-    .select('id,text,topic,status,option_yes,option_no,votes_yes,votes_no,closes_at,author_id,created_at,votes_yes_snapshot,votes_no_snapshot,snapshot_at')
-    .in('status', ['active', 'resolved_yes', 'resolved_no'])
-    .order('created_at', { ascending: false })
-    .limit(30);
-  if (error) { console.error('loadQuestions error:', error); return; }
+  try {
+    const data = await fetchFeedQuestions();
+    _feedQuestionsMap = new Map(data.map(q => [q.id, q]));
 
-  // Сохраняем в кэш
-  try { localStorage.setItem(CACHE_KEY, JSON.stringify({ data, ts: Date.now() })); } catch(e) {}
-  if (data && data.length > 0) {
-    // Сначала рендерим БЕЗ комментариев — мгновенно
-    const sorted = rankQuestions(data);
-    renderQuestions(sorted);
-    applyUserTopicsFilter();
+    try { localStorage.setItem(CACHE_KEY, JSON.stringify({ data, ts: Date.now() })); } catch(e) {}
 
-    // Потом асинхронно подгружаем голоса и комментарии
-    loadVotesAndComments(data);
+    if (data && data.length > 0) {
+      const sorted = rankQuestions(data);
+      renderQuestions(sorted);
+      applyUserTopicsFilter();
 
-    // Обновляем горячий вопрос в онбординге — берём первый из отсортированных
-    const hotQ = data.find(q => q.status === 'active') || data[0];
-    if (hotQ) {
-      _obHotQuestionId = hotQ.id;
-      const total = hotQ.votes_yes + hotQ.votes_no;
-      const pctYes = total > 0 ? Math.round(hotQ.votes_yes / total * 100) : 50;
-      const pctNo = 100 - pctYes;
-      const obText = document.getElementById('ob-q-text');
-      const obVotes = document.getElementById('ob-q-votes');
-      const obPctYes = document.getElementById('ob-pct-yes');
-      const obPctNo = document.getElementById('ob-pct-no');
-      const obBarYes = document.getElementById('ob-bar-yes');
-      if (obText) obText.textContent = hotQ.text;
-      if (obVotes) obVotes.textContent = total.toLocaleString('ru') + ' голосов';
-      if (obPctYes) obPctYes.textContent = pctYes + '%';
-      if (obPctNo) obPctNo.textContent = pctNo + '%';
-      if (obBarYes) obBarYes.style.width = pctYes + '%';
-    }
+      loadVotesAndComments(data);
 
-    if (currentUser.id && db) {
-      const { data: myVotes } = await db
-        .from('votes')
-        .select('question_id, choice')
-        .eq('user_id', currentUser.id);
-      if (myVotes && myVotes.length > 0) {
-        myVotes.forEach(v => {
-          const card = document.getElementById('q-' + v.question_id);
-          if (card && !card.classList.contains('voted')) {
-            card.classList.add('voted');
-            const resultEl = card.querySelector('.voted-result');
-            if (resultEl) {
-              const optYes = card.querySelector('.btn-yes')?.textContent?.replace('✓ ','') || 'ДА';
-              const optNo = card.querySelector('.btn-no')?.textContent?.replace('✗ ','') || 'НЕТ';
-              const choiceLabel = v.choice === 'yes' ? optYes : optNo;
-              // Считаем % за выбранный вариант
-              const barFill = card.querySelector('.vote-bar-fill');
-              const pctYes = barFill ? parseFloat(barFill.style.width) : 50;
-              const myPct = v.choice === 'yes' ? pctYes : 100 - pctYes;
-              let label, cssClass;
-              if (myPct < 35) {
-                label = `⚡ Твой прогноз: ${choiceLabel} — Ты против толпы!`;
-                cssClass = 'underdog';
-              } else {
-                label = `⏳ Твой прогноз: ${choiceLabel}`;
-                cssClass = 'pending';
-              }
-              // Для завершённых вопросов добавляем финальную метку
-              const cardEl = document.getElementById('q-' + v.question_id);
-              if (cardEl) {
-                const isResolved = cardEl.classList.contains('voted') && cardEl.querySelector('.voted-result');
-                const qStatus = cardEl.getAttribute('data-status');
-                if (qStatus === 'resolved_yes' || qStatus === 'resolved_no') {
-                  const correctChoice = qStatus === 'resolved_yes' ? 'yes' : 'no';
-                  const isCorrect = v.choice === correctChoice;
-                  if (!isCorrect && myPct >= 50) {
-                    // Проиграл и был с большинством
-                    resultEl.textContent = `❌ ${choiceLabel} — Не будь как все в следующий раз`;
-                    resultEl.className = 'voted-result sheep';
-                  } else if (!isCorrect && myPct < 35) {
-                    // Проиграл, но был против толпы — похвалить смелость
-                    resultEl.textContent = `❌ ${choiceLabel} — Смелый прогноз, но не угадал`;
-                    resultEl.className = 'voted-result pending';
-                  } else if (isCorrect && myPct < 35) {
-                    // Выиграл против толпы — максимальная эмоция
-                    resultEl.textContent = `🏆 ${choiceLabel} — Ты переиграл толпу!`;
-                    resultEl.className = 'voted-result correct';
-                  } else if (isCorrect) {
-                    resultEl.textContent = `✅ ${choiceLabel} — Угадал!`;
-                    resultEl.className = 'voted-result correct';
+      const hotQ = data.find(q => q.status === 'active') || data[0];
+      if (hotQ) {
+        _obHotQuestionId = hotQ.id;
+        const total = hotQ.total_votes || (hotQ.votes_yes + hotQ.votes_no);
+        const pctYes = total > 0 ? Math.round(hotQ.votes_yes / total * 100) : 50;
+        const pctNo = 100 - pctYes;
+        const obText = document.getElementById('ob-q-text');
+        const obVotes = document.getElementById('ob-q-votes');
+        const obPctYes = document.getElementById('ob-pct-yes');
+        const obPctNo = document.getElementById('ob-pct-no');
+        const obBarYes = document.getElementById('ob-bar-yes');
+        if (obText) obText.textContent = hotQ.text;
+        if (obVotes) obVotes.textContent = total.toLocaleString('ru') + ' голосов';
+        if (obPctYes) obPctYes.textContent = pctYes + '%';
+        if (obPctNo) obPctNo.textContent = pctNo + '%';
+        if (obBarYes) obBarYes.style.width = pctYes + '%';
+      }
+
+      if (currentUser.id && db) {
+        const { data: myVotes } = await db
+          .from('votes')
+          .select('question_id, choice')
+          .eq('user_id', currentUser.id);
+        if (myVotes && myVotes.length > 0) {
+          myVotes.forEach(v => {
+            const card = document.getElementById('q-' + v.question_id);
+            if (card && !card.classList.contains('voted')) {
+              card.classList.add('voted');
+              const resultEl = card.querySelector('.voted-result');
+              if (resultEl) {
+                const optYes = card.querySelector('.btn-yes')?.textContent?.replace('✓ ','') || 'ДА';
+                const optNo = card.querySelector('.btn-no')?.textContent?.replace('✗ ','') || 'НЕТ';
+                const choiceLabel = v.choice === 'yes' ? optYes : optNo;
+                const barFill = card.querySelector('[data-bar="yes"]');
+                const pctYes = barFill ? parseFloat(barFill.style.width) : 50;
+                const myPct = v.choice === 'yes' ? pctYes : 100 - pctYes;
+                let label, cssClass;
+                if (myPct < 35) {
+                  label = `⚡ Твой прогноз: ${choiceLabel} — Ты против толпы!`;
+                  cssClass = 'underdog';
+                } else {
+                  label = `⏳ Твой прогноз: ${choiceLabel}`;
+                  cssClass = 'pending';
+                }
+                const cardEl = document.getElementById('q-' + v.question_id);
+                if (cardEl) {
+                  const qStatus = cardEl.getAttribute('data-status');
+                  if (qStatus === 'resolved_yes' || qStatus === 'resolved_no') {
+                    const correctChoice = qStatus === 'resolved_yes' ? 'yes' : 'no';
+                    const isCorrect = v.choice === correctChoice;
+                    if (!isCorrect && myPct >= 50) {
+                      resultEl.textContent = `❌ ${choiceLabel} — Не будь как все в следующий раз`;
+                      resultEl.className = 'voted-result sheep';
+                    } else if (!isCorrect && myPct < 35) {
+                      resultEl.textContent = `❌ ${choiceLabel} — Смелый прогноз, но не угадал`;
+                      resultEl.className = 'voted-result pending';
+                    } else if (isCorrect && myPct < 35) {
+                      resultEl.textContent = `🏆 ${choiceLabel} — Ты переиграл толпу!`;
+                      resultEl.className = 'voted-result correct';
+                    } else if (isCorrect) {
+                      resultEl.textContent = `✅ ${choiceLabel} — Угадал!`;
+                      resultEl.className = 'voted-result correct';
+                    }
                   }
                 }
               }
-
             }
-          }
-        });
+          });
+        }
       }
     }
+  } catch (error) {
+    console.error('loadQuestions error:', error);
   }
 }
 
@@ -2626,18 +2625,31 @@ async function openQuestionDetail(questionId) {
   const overlay = document.getElementById('q-detail-overlay');
   overlay.classList.add('open');
 
-  // Сброс
   document.getElementById('qd-card').innerHTML = '<div style="text-align:center;padding:20px;color:var(--text2);">Загрузка...</div>';
   document.getElementById('qd-comments-list').innerHTML = '<div style="text-align:center;padding:20px;color:var(--text2);">Загрузка...</div>';
   document.getElementById('comment-textarea').value = '';
   cancelReply();
 
-  // Загружаем вопрос
-  const { data: q } = await db.from('questions').select('*').eq('id', questionId).single();
-  if (!q) return;
+  let q = _feedQuestionsMap.get(questionId) || null;
+
+  if (!q) {
+    try {
+      const questions = await fetchFeedQuestions();
+      _feedQuestionsMap = new Map(questions.map(item => [item.id, item]));
+      q = _feedQuestionsMap.get(questionId) || null;
+    } catch (e) {
+      console.error('openQuestionDetail feed error:', e);
+    }
+  }
+
+  if (!q) {
+    document.getElementById('qd-card').innerHTML = '<div style="text-align:center;padding:20px;color:var(--red);">Не удалось загрузить вопрос</div>';
+    return;
+  }
+
   _qdQuestion = q;
 
-  const total = q.votes_yes + q.votes_no;
+  const total = q.total_votes || (q.votes_yes + q.votes_no);
   const pctYes = total > 0 ? Math.round(q.votes_yes / total * 100) : 50;
   const pctNo = 100 - pctYes;
   const isResolved = q.status === 'resolved_yes' || q.status === 'resolved_no';
@@ -2646,7 +2658,6 @@ async function openQuestionDetail(questionId) {
   document.getElementById('qd-topic').textContent = q.topic;
   document.getElementById('qd-votes-count').textContent = `👥 ${total}`;
 
-  // Рендерим карточку вопроса
   document.getElementById('qd-card').innerHTML = `
     <div style="font-size:18px;font-weight:800;line-height:1.4;margin-bottom:16px;">${q.text}</div>
     ${isResolved ? `
@@ -2671,7 +2682,6 @@ async function openQuestionDetail(questionId) {
     </div>` : ''}
   `;
 
-  // Если уже голосовал — скрываем кнопки
   if (!isResolved && currentUser.id && db) {
     const { data: myVote } = await db.from('votes').select('choice').eq('user_id', currentUser.id).eq('question_id', questionId).maybeSingle();
     if (myVote) {
@@ -2680,7 +2690,6 @@ async function openQuestionDetail(questionId) {
     }
   }
 
-  // Загружаем комментарии
   await loadComments();
 }
 
