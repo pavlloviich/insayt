@@ -294,7 +294,6 @@
         <div class="topic-chip-edit" data-topic="₿ Крипта" onclick="selectEditTopic(this)">₿ Крипта</div>
         <div class="topic-chip-edit" data-topic="💻 Технологии" onclick="selectEditTopic(this)">💻 Технологии</div>
         <div class="topic-chip-edit" data-topic="💰 Экономика" onclick="selectEditTopic(this)">💰 Экономика</div>
-        <div class="topic-chip-edit" data-topic="✏️ Другое" onclick="selectEditTopic(this)">✏️ Другое</div>
       </div>
     </div>
     <div class="field"><label>Дата закрытия</label><input type="date" id="edit-date"></div>
@@ -448,7 +447,7 @@ async function saveEdit() {
   const optNo = document.getElementById('edit-no').value.trim();
   const topic = document.getElementById('edit-topic').value.trim();
   const dateVal = document.getElementById('edit-date').value;
-  if (!text || !optYes || !optNo) { showToast('⚠️ Заполни все поля'); return; }
+  if (!text || !optYes || !optNo || !topic) { showToast('⚠️ Заполни все поля включая тему'); return; }
   const btn = document.querySelector('#edit-modal .btn-save');
   btn.textContent = 'Сохраняем...'; btn.disabled = true;
   const { error } = await db.from('questions').update({text, option_yes:optYes, option_no:optNo, topic, closes_at: dateVal ? new Date(dateVal).toISOString() : null}).eq('id', id);
@@ -646,7 +645,9 @@ async function deleteUser(userId, userName, btn) {
 // ===== 3. ТОЧЕЧНЫЙ ПУШ =====
 async function loadUsersForPush() {
   const select = document.getElementById('push-user-select');
-  if (!select || select.options.length > 1) return; // уже загружено
+  if (!select) return;
+  // Перезагружаем всегда при открытии вкладки (актуальный список)
+  select.innerHTML = '<option value="">Выбери пользователя...</option>';
   const { data } = await db.from('users').select('id, name, username').order('name');
   if (!data) return;
   data.forEach(u => {
@@ -671,21 +672,21 @@ async function sendPushToUser() {
   status.textContent = '';
 
   try {
-    const res = await fetch('https://insayt.vercel.app/api/broadcast', {
+    const res = await fetch('https://insayt.vercel.app/api/notify-user', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text, users: [{ id: parseInt(userId), name: '' }] })
+      body: JSON.stringify({ user_id: parseInt(userId), text })
     });
     const data = await res.json();
-    if (res.ok && data.sent > 0) {
+    if (data.ok && data.sent > 0) {
       status.textContent = '✅ Доставлено!';
       showToast('✅ Пуш отправлен');
     } else {
-      status.textContent = '❌ Не доставлено (бот заблокирован или ошибка)';
+      status.textContent = '❌ ' + (data.error || 'Не доставлено — бот заблокирован?');
       showToast('❌ Не доставлено');
     }
   } catch(e) {
-    status.textContent = '❌ Ошибка соединения';
+    status.textContent = '❌ Ошибка: ' + e.message;
   }
   btn.disabled = false;
   btn.textContent = '🎯 Отправить';
