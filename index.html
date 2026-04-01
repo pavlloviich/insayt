@@ -1718,6 +1718,8 @@ try {
   console.error('Supabase init error:', e);
 }
 
+const API_BASE = 'https://insayt.vercel.app';
+
 // Сохраняем/обновляем пользователя в базе
 async function syncUser() {
   if (!currentUser.id || !db) return;
@@ -1824,7 +1826,7 @@ function renderMyQuestions(questions) {
   }
 
   questions.forEach(q => {
-    const total = q.votes_yes + q.votes_no;
+    const total = (q.total_votes ?? ((q.votes_yes || 0) + (q.votes_no || 0))) || 0;
     const pctYes = total > 0 ? Math.round(q.votes_yes / total * 100) : 50;
     const item = document.createElement('div');
     item.style.cssText = 'background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:16px; box-shadow:var(--shadow);';
@@ -1878,12 +1880,11 @@ async function loadUserRank() {
 }
 
 // Загружаем вопросы из базы
-async function loadQuestions() {
-  if (!db) return;
 
-  // Показываем кэш мгновенно
+async function loadQuestions() {
   const CACHE_KEY = 'insayt_questions_cache';
   const CACHE_TTL = 60000; // 60 секунд
+
   try {
     const cached = localStorage.getItem(CACHE_KEY);
     if (cached) {
@@ -1892,105 +1893,105 @@ async function loadQuestions() {
         renderQuestionsFromCache(cachedData);
       }
     }
-  } catch(e) {}
+  } catch (e) {}
 
-  const { data, error } = await db
-    .from('questions')
-    .select('id,text,topic,status,option_yes,option_no,votes_yes,votes_no,closes_at,author_id,created_at,votes_yes_snapshot,votes_no_snapshot,snapshot_at')
-    .in('status', ['active', 'resolved_yes', 'resolved_no'])
-    .order('created_at', { ascending: false })
-    .limit(30);
-  if (error) { console.error('loadQuestions error:', error); return; }
+  try {
+    const res = await fetch(`${API_BASE}/api/feed`);
+    const payload = await res.json();
 
-  // Сохраняем в кэш
-  try { localStorage.setItem(CACHE_KEY, JSON.stringify({ data, ts: Date.now() })); } catch(e) {}
-  if (data && data.length > 0) {
-    // Сначала рендерим БЕЗ комментариев — мгновенно
-    const sorted = rankQuestions(data);
-    renderQuestions(sorted);
-    applyUserTopicsFilter();
-
-    // Потом асинхронно подгружаем голоса и комментарии
-    loadVotesAndComments(data);
-
-    // Обновляем горячий вопрос в онбординге — берём первый из отсортированных
-    const hotQ = data.find(q => q.status === 'active') || data[0];
-    if (hotQ) {
-      _obHotQuestionId = hotQ.id;
-      const total = hotQ.votes_yes + hotQ.votes_no;
-      const pctYes = total > 0 ? Math.round(hotQ.votes_yes / total * 100) : 50;
-      const pctNo = 100 - pctYes;
-      const obText = document.getElementById('ob-q-text');
-      const obVotes = document.getElementById('ob-q-votes');
-      const obPctYes = document.getElementById('ob-pct-yes');
-      const obPctNo = document.getElementById('ob-pct-no');
-      const obBarYes = document.getElementById('ob-bar-yes');
-      if (obText) obText.textContent = hotQ.text;
-      if (obVotes) obVotes.textContent = total.toLocaleString('ru') + ' голосов';
-      if (obPctYes) obPctYes.textContent = pctYes + '%';
-      if (obPctNo) obPctNo.textContent = pctNo + '%';
-      if (obBarYes) obBarYes.style.width = pctYes + '%';
+    if (!res.ok || !payload.ok || !Array.isArray(payload.questions)) {
+      console.error('loadQuestions feed error:', payload);
+      return;
     }
 
-    if (currentUser.id && db) {
-      const { data: myVotes } = await db
-        .from('votes')
-        .select('question_id, choice')
-        .eq('user_id', currentUser.id);
-      if (myVotes && myVotes.length > 0) {
-        myVotes.forEach(v => {
-          const card = document.getElementById('q-' + v.question_id);
-          if (card && !card.classList.contains('voted')) {
-            card.classList.add('voted');
-            const resultEl = card.querySelector('.voted-result');
-            if (resultEl) {
-              const optYes = card.querySelector('.btn-yes')?.textContent?.replace('✓ ','') || 'ДА';
-              const optNo = card.querySelector('.btn-no')?.textContent?.replace('✗ ','') || 'НЕТ';
-              const choiceLabel = v.choice === 'yes' ? optYes : optNo;
-              // Считаем % за выбранный вариант
-              const barFill = card.querySelector('.vote-bar-fill');
-              const pctYes = barFill ? parseFloat(barFill.style.width) : 50;
-              const myPct = v.choice === 'yes' ? pctYes : 100 - pctYes;
-              let label, cssClass;
-              if (myPct < 35) {
-                label = `⚡ Твой прогноз: ${choiceLabel} — Ты против толпы!`;
-                cssClass = 'underdog';
-              } else {
-                label = `⏳ Твой прогноз: ${choiceLabel}`;
-                cssClass = 'pending';
-              }
-              // Для завершённых вопросов добавляем финальную метку
-              const cardEl = document.getElementById('q-' + v.question_id);
-              if (cardEl) {
-                const isResolved = cardEl.classList.contains('voted') && cardEl.querySelector('.voted-result');
-                const qStatus = cardEl.getAttribute('data-status');
+    const data = payload.questions;
+
+    try { localStorage.setItem(CACHE_KEY, JSON.stringify({ data, ts: Date.now() })); } catch (e) {}
+
+    if (data.length > 0) {
+      const sorted = rankQuestions(data);
+      renderQuestions(sorted);
+      applyUserTopicsFilter();
+
+      loadVotesAndComments(data);
+
+      const hotQ = data.find(q => q.status === 'active') || data[0];
+      if (hotQ) {
+        _obHotQuestionId = hotQ.id;
+        const total = (hotQ.total_votes ?? ((hotQ.votes_yes || 0) + (hotQ.votes_no || 0))) || 0;
+        const pctYes = total > 0 ? Math.round((hotQ.votes_yes || 0) / total * 100) : 50;
+        const pctNo = 100 - pctYes;
+        const obText = document.getElementById('ob-q-text');
+        const obVotes = document.getElementById('ob-q-votes');
+        const obPctYes = document.getElementById('ob-pct-yes');
+        const obPctNo = document.getElementById('ob-pct-no');
+        const obBarYes = document.getElementById('ob-bar-yes');
+        if (obText) obText.textContent = hotQ.text;
+        if (obVotes) obVotes.textContent = total.toLocaleString('ru') + ' голосов';
+        if (obPctYes) obPctYes.textContent = pctYes + '%';
+        if (obPctNo) obPctNo.textContent = pctNo + '%';
+        if (obBarYes) obBarYes.style.width = pctYes + '%';
+      }
+
+      if (currentUser.id && db) {
+        const { data: myVotes } = await db
+          .from('votes')
+          .select('question_id, choice')
+          .eq('user_id', currentUser.id);
+
+        if (myVotes && myVotes.length > 0) {
+          myVotes.forEach(v => {
+            const card = document.getElementById('q-' + v.question_id);
+            if (card && !card.classList.contains('voted')) {
+              card.classList.add('voted');
+              const resultEl = card.querySelector('.voted-result');
+              if (resultEl) {
+                const optYes = card.querySelector('.btn-yes')?.textContent?.replace('✓ ','') || 'ДА';
+                const optNo = card.querySelector('.btn-no')?.textContent?.replace('✗ ','') || 'НЕТ';
+                const choiceLabel = v.choice === 'yes' ? optYes : optNo;
+                const barFill = card.querySelector('[data-bar="yes"]');
+                const pctYes = barFill ? parseFloat(barFill.style.width) : 50;
+                const myPct = v.choice === 'yes' ? pctYes : 100 - pctYes;
+                let label, cssClass;
+                if (myPct < 35) {
+                  label = `⚡ Твой прогноз: ${choiceLabel} — Ты против толпы!`;
+                  cssClass = 'underdog';
+                } else {
+                  label = `⏳ Твой прогноз: ${choiceLabel}`;
+                  cssClass = 'pending';
+                }
+                const qStatus = card.getAttribute('data-status');
                 if (qStatus === 'resolved_yes' || qStatus === 'resolved_no') {
                   const correctChoice = qStatus === 'resolved_yes' ? 'yes' : 'no';
                   const isCorrect = v.choice === correctChoice;
                   if (!isCorrect && myPct >= 50) {
-                    // Проиграл и был с большинством
                     resultEl.textContent = `❌ ${choiceLabel} — Не будь как все в следующий раз`;
                     resultEl.className = 'voted-result sheep';
                   } else if (!isCorrect && myPct < 35) {
-                    // Проиграл, но был против толпы — похвалить смелость
                     resultEl.textContent = `❌ ${choiceLabel} — Смелый прогноз, но не угадал`;
                     resultEl.className = 'voted-result pending';
                   } else if (isCorrect && myPct < 35) {
-                    // Выиграл против толпы — максимальная эмоция
                     resultEl.textContent = `🏆 ${choiceLabel} — Ты переиграл толпу!`;
                     resultEl.className = 'voted-result correct';
                   } else if (isCorrect) {
                     resultEl.textContent = `✅ ${choiceLabel} — Угадал!`;
                     resultEl.className = 'voted-result correct';
+                  } else {
+                    resultEl.textContent = label;
+                    resultEl.className = 'voted-result ' + cssClass;
                   }
+                } else {
+                  resultEl.textContent = label;
+                  resultEl.className = 'voted-result ' + cssClass;
                 }
               }
-
             }
-          }
-        });
+          });
+        }
       }
     }
+  } catch (error) {
+    console.error('loadQuestions fatal error:', error);
   }
 }
 
@@ -1999,7 +2000,7 @@ function rankQuestions(questions) {
   const now = Date.now();
   // Считаем скор вовлечённости (голоса + свежесть)
   const withScore = questions.map(q => {
-    const total = q.votes_yes + q.votes_no;
+    const total = (q.total_votes ?? ((q.votes_yes || 0) + (q.votes_no || 0))) || 0;
     const ageHours = (now - new Date(q.created_at).getTime()) / 3600000;
     // Вовлечённость: голоса с небольшим затуханием по времени
     const engagement = total / Math.pow(ageHours + 2, 0.5);
@@ -2249,7 +2250,7 @@ async function voteQuestion(questionId, choice, btn) {
   btn.disabled = true;
 
   try {
-    const res = await fetch('https://insayt.vercel.app/api/vote', {
+    const res = await fetch(`${API_BASE}/api/vote`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -2274,44 +2275,8 @@ async function voteQuestion(questionId, choice, btn) {
       return;
     }
 
-    const fresh = data.question_after || null;
-    card.classList.add('voted');
-
-    if (fresh) {
-      const total = fresh.votes_yes + fresh.votes_no;
-      const pctYes = total > 0 ? Math.round(fresh.votes_yes / total * 100) : 50;
-      const pctNo = 100 - pctYes;
-      const myPct = choice === 'yes' ? pctYes : pctNo;
-
-      const bigYes = card.querySelector('[data-pct="yes"]');
-      const bigNo = card.querySelector('[data-pct="no"]');
-      if (bigYes) bigYes.textContent = pctYes + '%';
-      if (bigNo) bigNo.textContent = pctNo + '%';
-
-      const barEl = card.querySelector('[data-bar="yes"]');
-      if (barEl) barEl.style.width = pctYes + '%';
-
-      const votesEl = card.querySelector('[data-votes]');
-      if (votesEl) votesEl.innerHTML = '<span class="live-dot"></span><span style="font-size:12px;color:var(--text2);">' + total + ' голосов</span>';
-
-      const choiceLabel = choice === 'yes' ? (fresh.option_yes || 'Да') : (fresh.option_no || 'Нет');
-      let label, cssClass;
-      if (myPct < 35) {
-        label = '⚡ Твой прогноз: ' + choiceLabel + ' — Ты против толпы!';
-        cssClass = 'voted-result underdog';
-      } else {
-        label = '⏳ Твой прогноз: ' + choiceLabel;
-        cssClass = 'voted-result pending';
-      }
-
-      const resultEl = card.querySelector('.voted-result');
-      if (resultEl) {
-        resultEl.textContent = label;
-        resultEl.className = cssClass;
-      }
-    }
-
-    showToast('✅ Прогноз принят! +20 очков');
+    await loadQuestions();
+    showToast(data.duplicate ? 'Ты уже голосовал!' : '✅ Прогноз принят! +20 очков');
   } catch (e) {
     console.error('voteQuestion error:', e);
     showToast('Ошибка сети');
@@ -2633,7 +2598,20 @@ async function openQuestionDetail(questionId) {
   cancelReply();
 
   // Загружаем вопрос
-  const { data: q } = await db.from('questions').select('*').eq('id', questionId).single();
+  let q = null;
+  try {
+    const res = await fetch(`${API_BASE}/api/feed`);
+    const payload = await res.json();
+    if (res.ok && payload.ok && Array.isArray(payload.questions)) {
+      q = payload.questions.find(item => item.id === questionId) || null;
+    }
+  } catch (e) {
+    console.error('openQuestionDetail feed error:', e);
+  }
+  if (!q && db) {
+    const { data: fallbackQ } = await db.from('questions').select('*').eq('id', questionId).single();
+    q = fallbackQ || null;
+  }
   if (!q) return;
   _qdQuestion = q;
 
@@ -2692,7 +2670,7 @@ async function voteFromDetail(choice) {
   if (btns) btns.style.opacity = '0.5';
 
   try {
-    const res = await fetch('https://insayt.vercel.app/api/vote', {
+    const res = await fetch(`${API_BASE}/api/vote`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -2717,29 +2695,8 @@ async function voteFromDetail(choice) {
       return;
     }
 
-    const feedCard = document.getElementById('q-' + q.id);
-    if (feedCard) {
-      feedCard.classList.add('voted');
-      const fresh = data.question_after || null;
-      if (fresh) {
-        const total = fresh.votes_yes + fresh.votes_no;
-        const pctYes = total > 0 ? Math.round(fresh.votes_yes / total * 100) : 50;
-        const pctNo = 100 - pctYes;
-
-        const bigYes = feedCard.querySelector('[data-pct="yes"]');
-        const bigNo = feedCard.querySelector('[data-pct="no"]');
-        if (bigYes) bigYes.textContent = pctYes + '%';
-        if (bigNo) bigNo.textContent = pctNo + '%';
-
-        const barEl = feedCard.querySelector('[data-bar="yes"]');
-        if (barEl) barEl.style.width = pctYes + '%';
-
-        const votesEl = feedCard.querySelector('[data-votes]');
-        if (votesEl) votesEl.innerHTML = '<span class="live-dot"></span><span style="font-size:12px;color:var(--text2);">' + total + ' голосов</span>';
-      }
-    }
-
-    showToast('✅ Прогноз принят! +20 очков');
+    await loadQuestions();
+    showToast(data.duplicate ? 'Ты уже голосовал!' : '✅ Прогноз принят! +20 очков');
     openQuestionDetail(q.id);
   } catch (e) {
     console.error('voteFromDetail error:', e);
