@@ -264,6 +264,28 @@
   .vote-yes { color: var(--green); }
   .vote-no { color: var(--red); }
 
+  /* SKELETON LOADING */
+  .skeleton {
+    background: linear-gradient(90deg, var(--surface2) 25%, var(--border) 50%, var(--surface2) 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.4s infinite;
+    border-radius: 8px;
+  }
+  @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+  .skeleton-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 16px;
+    margin-bottom: 12px;
+    overflow: hidden;
+  }
+  .skeleton-line { height: 14px; margin-bottom: 10px; }
+  .skeleton-title { height: 18px; margin-bottom: 8px; width: 90%; }
+  .skeleton-pct { height: 40px; width: 60px; border-radius: 6px; }
+  .skeleton-bar { height: 8px; border-radius: 100px; margin: 10px 0; }
+  .skeleton-btn { height: 46px; border-radius: 14px; }
+
   /* Новые блоки с процентами */
   .vote-blocks {
     display: grid;
@@ -1324,8 +1346,10 @@
     <div class="topic-chip active" onclick="filterTopic(this)">💰 Экономика</div>
   </div>
   <div class="section-title">Горячие вопросы</div>
-  <div class="feed pb-100">
-
+  <div class="feed pb-100" id="feed-list">
+    <div class="skeleton-card"><div class="skeleton skeleton-line" style="width:90px;height:22px;border-radius:20px;margin-bottom:12px;"></div><div class="skeleton skeleton-title"></div><div class="skeleton skeleton-line" style="width:70%;"></div><div style="display:flex;justify-content:space-between;margin:14px 0 8px;"><div class="skeleton skeleton-pct"></div><div class="skeleton skeleton-pct"></div></div><div class="skeleton skeleton-bar"></div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px;"><div class="skeleton skeleton-btn"></div><div class="skeleton skeleton-btn"></div></div></div>
+    <div class="skeleton-card"><div class="skeleton skeleton-line" style="width:80px;height:22px;border-radius:20px;margin-bottom:12px;"></div><div class="skeleton skeleton-title" style="width:85%;"></div><div class="skeleton skeleton-line" style="width:60%;"></div><div style="display:flex;justify-content:space-between;margin:14px 0 8px;"><div class="skeleton skeleton-pct"></div><div class="skeleton skeleton-pct"></div></div><div class="skeleton skeleton-bar"></div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px;"><div class="skeleton skeleton-btn"></div><div class="skeleton skeleton-btn"></div></div></div>
+    <div class="skeleton-card"><div class="skeleton skeleton-line" style="width:100px;height:22px;border-radius:20px;margin-bottom:12px;"></div><div class="skeleton skeleton-title" style="width:95%;"></div><div class="skeleton skeleton-line" style="width:55%;"></div><div style="display:flex;justify-content:space-between;margin:14px 0 8px;"><div class="skeleton skeleton-pct"></div><div class="skeleton skeleton-pct"></div></div><div class="skeleton skeleton-bar"></div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px;"><div class="skeleton skeleton-btn"></div><div class="skeleton skeleton-btn"></div></div></div>
   </div>
 
   <button class="add-btn" onclick="showScreen('add')">
@@ -1829,6 +1853,20 @@ async function loadUserRank() {
 // Загружаем вопросы из базы
 async function loadQuestions() {
   if (!db) return;
+
+  // Показываем кэш мгновенно
+  const CACHE_KEY = 'insayt_questions_cache';
+  const CACHE_TTL = 60000; // 60 секунд
+  try {
+    const cached = localStorage.getItem(CACHE_KEY);
+    if (cached) {
+      const { data: cachedData, ts } = JSON.parse(cached);
+      if (Date.now() - ts < CACHE_TTL && cachedData?.length > 0) {
+        renderQuestionsFromCache(cachedData);
+      }
+    }
+  } catch(e) {}
+
   const { data, error } = await db
     .from('questions')
     .select('id,text,topic,status,option_yes,option_no,votes_yes,votes_no,closes_at,author_id,created_at,votes_yes_snapshot,votes_no_snapshot,snapshot_at')
@@ -1836,7 +1874,18 @@ async function loadQuestions() {
     .order('created_at', { ascending: false })
     .limit(30);
   if (error) { console.error('loadQuestions error:', error); return; }
+
+  // Сохраняем в кэш
+  try { localStorage.setItem(CACHE_KEY, JSON.stringify({ data, ts: Date.now() })); } catch(e) {}
   if (data && data.length > 0) {
+    // Сначала рендерим БЕЗ комментариев — мгновенно
+    const sorted = rankQuestions(data);
+    renderQuestions(sorted);
+    applyUserTopicsFilter();
+
+    // Потом асинхронно подгружаем голоса и комментарии
+    loadVotesAndComments(data);
+
     // Обновляем горячий вопрос в онбординге — берём первый из отсортированных
     const hotQ = data.find(q => q.status === 'active') || data[0];
     if (hotQ) {
@@ -1856,20 +1905,6 @@ async function loadQuestions() {
       if (obBarYes) obBarYes.style.width = pctYes + '%';
     }
 
-    // Подгружаем кол-во комментариев для всех вопросов
-    const qIds = data.map(q => q.id);
-    const { data: commentCounts } = await db
-      .from('comments')
-      .select('question_id')
-      .in('question_id', qIds)
-      .is('parent_id', null);
-    const countMap = {};
-    if (commentCounts) commentCounts.forEach(c => { countMap[c.question_id] = (countMap[c.question_id] || 0) + 1; });
-    data.forEach(q => { q._commentCount = countMap[q.id] || 0; });
-
-    const sorted = rankQuestions(data);
-    renderQuestions(sorted);
-    applyUserTopicsFilter();
     if (currentUser.id && db) {
       const { data: myVotes } = await db
         .from('votes')
@@ -1970,6 +2005,69 @@ function rankQuestions(questions) {
   });
 }
 
+// Асинхронная загрузка голосов и комментариев после рендера
+async function loadVotesAndComments(data) {
+  if (!data || !data.length || !db) return;
+  const qIds = data.map(q => q.id);
+
+  // Параллельно: комментарии + голоса пользователя
+  const [commentsRes, votesRes] = await Promise.all([
+    db.from('comments').select('question_id').in('question_id', qIds).is('parent_id', null),
+    currentUser.id ? db.from('votes').select('question_id, choice').eq('user_id', currentUser.id) : Promise.resolve({ data: [] })
+  ]);
+
+  // Обновляем счётчики комментариев в карточках
+  if (commentsRes.data) {
+    const countMap = {};
+    commentsRes.data.forEach(c => { countMap[c.question_id] = (countMap[c.question_id] || 0) + 1; });
+    qIds.forEach(id => {
+      const card = document.getElementById('q-' + id);
+      if (!card) return;
+      const footer = card.querySelector('.q-card-footer-bar span');
+      if (footer && countMap[id]) {
+        footer.innerHTML = footer.innerHTML.replace(/💬 \d+/, '💬 ' + (countMap[id] || 0));
+      }
+    });
+  }
+
+  // Помечаем проголосованные карточки
+  if (votesRes.data && votesRes.data.length > 0) {
+    votesRes.data.forEach(v => {
+      const card = document.getElementById('q-' + v.question_id);
+      if (card && !card.classList.contains('voted')) {
+        card.classList.add('voted');
+        const resultEl = card.querySelector('.voted-result');
+        const barEl = card.querySelector('[data-bar="yes"]');
+        const pctYes = barEl ? parseFloat(barEl.style.width) : 50;
+        const myPct = v.choice === 'yes' ? pctYes : 100 - pctYes;
+        const btnYes = card.querySelector('.btn-yes');
+        const btnNo = card.querySelector('.btn-no');
+        const choiceLabel = v.choice === 'yes' ? (btnYes?.textContent.replace('✓ ','') || 'Да') : (btnNo?.textContent.replace('✗ ','') || 'Нет');
+        if (resultEl) {
+          if (myPct < 35) {
+            resultEl.textContent = '⚡ Твой прогноз: ' + choiceLabel + ' — Ты против толпы!';
+            resultEl.className = 'voted-result underdog';
+          } else {
+            resultEl.textContent = '⏳ Твой прогноз: ' + choiceLabel;
+            resultEl.className = 'voted-result pending';
+          }
+        }
+      }
+    });
+  }
+}
+
+// Рендер из кэша — быстрый показ без доп запросов
+function renderQuestionsFromCache(data) {
+  const feed = document.getElementById('feed-list') || document.querySelector('.feed');
+  if (!feed || data.length === 0) return;
+  // Если уже есть реальные карточки — не перерисовываем
+  if (feed.querySelector('.q-card')) return;
+  const sorted = rankQuestions(data);
+  renderQuestions(sorted);
+  applyUserTopicsFilter();
+}
+
 // Применяем предустановленный фильтр по темам из онбординга
 function applyUserTopicsFilter() {
   const userTopics = window._userTopics;
@@ -2010,7 +2108,7 @@ function applyUserTopicsFilter() {
 
 // Рендерим вопросы из базы в ленту
 function renderQuestions(questions) {
-  const feed = document.querySelector('.feed');
+  const feed = document.getElementById('feed-list') || document.querySelector('.feed');
   if (!feed) return;
   feed.innerHTML = '';
   questions.forEach(q => {
