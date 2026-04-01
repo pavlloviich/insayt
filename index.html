@@ -2236,80 +2236,88 @@ function renderQuestions(questions) {
   });
 }
 
-// Голосуем за вопрос
+// Голосуем за вопрос через защищённый backend
 async function voteQuestion(questionId, choice, btn) {
-  if (!currentUser.id || !db) { showToast('Открой через Telegram!'); return; }
-  const card = document.getElementById('q-' + questionId);
-  if (card.classList.contains('voted')) return;
-
-  btn.disabled = true;
-
-  const { error } = await db.from('votes').insert({
-    user_id: currentUser.id,
-    question_id: questionId,
-    choice: choice
-  });
-
-  if (error) {
-    if (error.code === '23505') showToast('Ты уже голосовал!');
-    else showToast('Ошибка: ' + error.message);
-    btn.disabled = false;
+  if (!window.Telegram || !window.Telegram.WebApp || !window.Telegram.WebApp.initData) {
+    showToast('Открой через Telegram!');
     return;
   }
 
-  // Обновляем счётчик в БД
-  const field = choice === 'yes' ? 'votes_yes' : 'votes_no';
-  await db.rpc('increment_vote', { question_id: questionId, field_name: field });
+  const card = document.getElementById('q-' + questionId);
+  if (!card || card.classList.contains('voted')) return;
 
-  // Получаем свежие данные по вопросу
-  const { data: fresh } = await db
-    .from('questions')
-    .select('votes_yes, votes_no, option_yes, option_no')
-    .eq('id', questionId)
-    .single();
+  btn.disabled = true;
 
-  card.classList.add('voted');
+  try {
+    const res = await fetch('/api/vote', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        initData: window.Telegram.WebApp.initData,
+        question_id: questionId,
+        vote: choice
+      })
+    });
 
-  if (fresh) {
-    const total = fresh.votes_yes + fresh.votes_no;
-    const pctYes = total > 0 ? Math.round(fresh.votes_yes / total * 100) : 50;
-    const pctNo = 100 - pctYes;
-    const myPct = choice === 'yes' ? pctYes : pctNo;
+    const data = await res.json();
 
-    // Обновляем большие проценты
-    const bigYes = card.querySelector('[data-pct="yes"]');
-    const bigNo = card.querySelector('[data-pct="no"]');
-    if (bigYes) bigYes.textContent = pctYes + '%';
-    if (bigNo) bigNo.textContent = pctNo + '%';
-
-    // Обновляем solid bar
-    const barEl = card.querySelector('[data-bar="yes"]');
-    if (barEl) barEl.style.width = pctYes + '%';
-
-    // Обновляем счётчик голосов
-    const votesEl = card.querySelector('[data-votes]');
-    if (votesEl) votesEl.innerHTML = '<span class="live-dot"></span><span style="font-size:12px;color:var(--text2);">' + total + ' голосов</span>';
-
-    // Эмоциональная метка
-    const choiceLabel = choice === 'yes' ? fresh.option_yes : fresh.option_no;
-    let label, cssClass;
-    if (myPct < 35) {
-      label = '⚡ Твой прогноз: ' + choiceLabel + ' — Ты против толпы!';
-      cssClass = 'voted-result underdog';
-    } else {
-      label = '⏳ Твой прогноз: ' + choiceLabel;
-      cssClass = 'voted-result pending';
+    if (!res.ok || !data.ok) {
+      showToast('Ошибка: ' + (data.error || 'Не удалось проголосовать'));
+      btn.disabled = false;
+      return;
     }
 
-    const resultEl = card.querySelector('.voted-result');
-    if (resultEl) {
-      resultEl.textContent = label;
-      resultEl.className = cssClass;
+    if (data.duplicate) {
+      showToast('Ты уже голосовал!');
+      card.classList.add('voted');
+      btn.disabled = false;
+      return;
     }
+
+    const fresh = data.question_after || null;
+    card.classList.add('voted');
+
+    if (fresh) {
+      const total = fresh.votes_yes + fresh.votes_no;
+      const pctYes = total > 0 ? Math.round(fresh.votes_yes / total * 100) : 50;
+      const pctNo = 100 - pctYes;
+      const myPct = choice === 'yes' ? pctYes : pctNo;
+
+      const bigYes = card.querySelector('[data-pct="yes"]');
+      const bigNo = card.querySelector('[data-pct="no"]');
+      if (bigYes) bigYes.textContent = pctYes + '%';
+      if (bigNo) bigNo.textContent = pctNo + '%';
+
+      const barEl = card.querySelector('[data-bar="yes"]');
+      if (barEl) barEl.style.width = pctYes + '%';
+
+      const votesEl = card.querySelector('[data-votes]');
+      if (votesEl) votesEl.innerHTML = '<span class="live-dot"></span><span style="font-size:12px;color:var(--text2);">' + total + ' голосов</span>';
+
+      const choiceLabel = choice === 'yes' ? (fresh.option_yes || 'Да') : (fresh.option_no || 'Нет');
+      let label, cssClass;
+      if (myPct < 35) {
+        label = '⚡ Твой прогноз: ' + choiceLabel + ' — Ты против толпы!';
+        cssClass = 'voted-result underdog';
+      } else {
+        label = '⏳ Твой прогноз: ' + choiceLabel;
+        cssClass = 'voted-result pending';
+      }
+
+      const resultEl = card.querySelector('.voted-result');
+      if (resultEl) {
+        resultEl.textContent = label;
+        resultEl.className = cssClass;
+      }
+    }
+
+    showToast('✅ Прогноз принят! +20 очков');
+  } catch (e) {
+    console.error('voteQuestion error:', e);
+    showToast('Ошибка сети');
+  } finally {
+    btn.disabled = false;
   }
-
-  showToast('✅ Прогноз принят! +20 очков');
-  btn.disabled = false;
 }
 
 // Загружаем рейтинг
@@ -2678,27 +2686,66 @@ async function openQuestionDetail(questionId) {
 
 async function voteFromDetail(choice) {
   const q = _qdQuestion;
-  if (!q || !currentUser.id || !db) return;
+  if (!q || !window.Telegram || !window.Telegram.WebApp || !window.Telegram.WebApp.initData) return;
+
   const btns = document.getElementById('qd-vote-btns');
   if (btns) btns.style.opacity = '0.5';
 
-  const { error } = await db.from('votes').insert({ user_id: currentUser.id, question_id: q.id, choice });
-  if (error) {
-    if (error.code === '23505') showToast('Ты уже голосовал!');
-    else showToast('Ошибка: ' + error.message);
+  try {
+    const res = await fetch('/api/vote', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        initData: window.Telegram.WebApp.initData,
+        question_id: q.id,
+        vote: choice
+      })
+    });
+
+    const data = await res.json();
+
+    if (!res.ok || !data.ok) {
+      showToast('Ошибка: ' + (data.error || 'Не удалось проголосовать'));
+      if (btns) btns.style.opacity = '1';
+      return;
+    }
+
+    if (data.duplicate) {
+      showToast('Ты уже голосовал!');
+      if (btns) btns.style.opacity = '1';
+      openQuestionDetail(q.id);
+      return;
+    }
+
+    const feedCard = document.getElementById('q-' + q.id);
+    if (feedCard) {
+      feedCard.classList.add('voted');
+      const fresh = data.question_after || null;
+      if (fresh) {
+        const total = fresh.votes_yes + fresh.votes_no;
+        const pctYes = total > 0 ? Math.round(fresh.votes_yes / total * 100) : 50;
+        const pctNo = 100 - pctYes;
+
+        const bigYes = feedCard.querySelector('[data-pct="yes"]');
+        const bigNo = feedCard.querySelector('[data-pct="no"]');
+        if (bigYes) bigYes.textContent = pctYes + '%';
+        if (bigNo) bigNo.textContent = pctNo + '%';
+
+        const barEl = feedCard.querySelector('[data-bar="yes"]');
+        if (barEl) barEl.style.width = pctYes + '%';
+
+        const votesEl = feedCard.querySelector('[data-votes]');
+        if (votesEl) votesEl.innerHTML = '<span class="live-dot"></span><span style="font-size:12px;color:var(--text2);">' + total + ' голосов</span>';
+      }
+    }
+
+    showToast('✅ Прогноз принят! +20 очков');
+    openQuestionDetail(q.id);
+  } catch (e) {
+    console.error('voteFromDetail error:', e);
+    showToast('Ошибка сети');
     if (btns) btns.style.opacity = '1';
-    return;
   }
-  const field = choice === 'yes' ? 'votes_yes' : 'votes_no';
-  await db.rpc('increment_vote', { question_id: q.id, field_name: field });
-
-  // Обновляем карточку в ленте
-  const feedCard = document.getElementById('q-' + q.id);
-  if (feedCard) feedCard.classList.add('voted');
-
-  showToast('✅ Прогноз принят! +20 очков');
-  // Перезагружаем детальную карточку
-  openQuestionDetail(q.id);
 }
 
 function closeQuestionDetail() {
@@ -3267,6 +3314,11 @@ function addToMyQuestions(q, yes, no, topic) {
     </div>
   `;
   list.insertBefore(item, list.firstChild);
+}
+
+function vote(id, choice) {
+  const btn = event && event.target ? event.target : null;
+  voteQuestion(id, choice, btn || { disabled: false });
 }
 
 function addQuestionToFeed(q, yes, no, topic) {
