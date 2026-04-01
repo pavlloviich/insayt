@@ -992,47 +992,70 @@
 
   /* STEP 2 — Topics */
   .ob-topics-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
+    display: flex;
+    flex-direction: column;
     gap: 10px;
     padding: 0 20px;
-    flex: 1;
   }
 
   .ob-topic-card {
     background: var(--surface);
     border: 2px solid var(--border);
-    border-radius: 20px;
-    padding: 20px 16px;
+    border-radius: 16px;
+    padding: 14px 16px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
     cursor: pointer;
     transition: all 0.2s;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 8px;
-    text-align: center;
+    box-shadow: var(--shadow);
   }
 
   .ob-topic-card.selected {
     border-color: var(--accent);
-    background: rgba(108,92,231,0.12);
+    background: rgba(61,90,241,0.06);
   }
 
-  .ob-topic-card:active { transform: scale(0.96); }
+  .ob-topic-card:active { transform: scale(0.98); }
 
-  .ob-topic-emoji { font-size: 32px; }
-  .ob-topic-name { font-size: 14px; font-weight: 700; }
-  .ob-topic-count { font-size: 11px; color: var(--text2); }
-
-  .ob-hint { font-size: 12px; color: var(--text2); text-align: center; padding: 12px 20px 0; }
-
-  /* STEP 3 — First question */
-  .ob-question-wrap {
-    flex: 1;
-    padding: 0 20px;
+  .ob-topic-emoji {
+    font-size: 24px;
+    width: 44px;
+    height: 44px;
     display: flex;
-    flex-direction: column;
+    align-items: center;
     justify-content: center;
+    background: var(--surface2);
+    border-radius: 12px;
+    flex-shrink: 0;
+  }
+
+  .ob-topic-name {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text);
+    flex: 1;
+  }
+
+  .ob-topic-check {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: 2px solid var(--border);
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+    transition: all 0.2s;
+  }
+
+  .ob-topic-card.selected .ob-topic-check {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: white;
+    content: '✓';
   }
 
   .ob-q-card {
@@ -1238,26 +1261,30 @@
     </div>
     <div style="padding: 24px 20px 16px;">
       <div style="font-family:'Bebas Neue',sans-serif; font-size:36px; letter-spacing:2px; margin-bottom:8px;">Выбери темы</div>
-      <div style="font-size:14px; color:var(--text2);">Выбери хотя бы 2 темы которые тебе интересны</div>
+      <div style="font-size:14px; color:var(--text2);">Выбери интересные тебе темы — лента настроится под них</div>
     </div>
-    <div class="ob-hint" id="ob-hint">Выбрано: <strong id="ob-selected-count">0</strong> из 4</div>
+    <div class="ob-hint" id="ob-hint">Выбрано: <strong id="ob-selected-count">0</strong> тем</div>
     <div style="height:12px;"></div>
     <div class="ob-topics-grid">
       <div class="ob-topic-card" onclick="toggleTopic(this,'politics')">
         <div class="ob-topic-emoji">🏛</div>
         <div class="ob-topic-name">Политика</div>
+        <div class="ob-topic-check">✓</div>
       </div>
       <div class="ob-topic-card" onclick="toggleTopic(this,'crypto')">
         <div class="ob-topic-emoji">₿</div>
         <div class="ob-topic-name">Крипта</div>
+        <div class="ob-topic-check">✓</div>
       </div>
       <div class="ob-topic-card" onclick="toggleTopic(this,'tech')">
         <div class="ob-topic-emoji">💻</div>
         <div class="ob-topic-name">Технологии</div>
+        <div class="ob-topic-check">✓</div>
       </div>
       <div class="ob-topic-card" onclick="toggleTopic(this,'economy')">
         <div class="ob-topic-emoji">💰</div>
         <div class="ob-topic-name">Экономика</div>
+        <div class="ob-topic-check">✓</div>
       </div>
     </div>
     <div class="ob-bottom">
@@ -2483,27 +2510,21 @@ window.addEventListener('DOMContentLoaded', async () => {
     rankEl.textContent = `@${currentUser.username} • Загрузка рейтинга...`;
   }
 
-  // Проверяем локальный кэш онбординга СРАЗУ — без ожидания БД
+  // Запускаем данные параллельно сразу
+  Promise.all([syncUser(), loadQuestions(), loadUserRank()]);
+  loadProfile();
+
+  // Онбординг — показываем ПОСЛЕ небольшой задержки чтобы лента успела начать грузиться
+  // Но только если нет кэша — иначе мгновенно
   const ob = document.getElementById('onboarding');
-  if (ob) {
-    const key = 'insayt_ob_' + (currentUser.id || 'guest');
+  if (ob && currentUser.id) {
+    const key = 'insayt_ob_' + currentUser.id;
     let cachedDone = false;
     try { if (localStorage.getItem(key) || localStorage.getItem('insayt_onboarding_done')) cachedDone = true; } catch(e) {}
     try { if (sessionStorage.getItem('insayt_ob')) cachedDone = true; } catch(e) {}
     if (document.cookie.includes('insayt_ob=1')) cachedDone = true;
-    if (!cachedDone && currentUser.id) {
-      // Показываем онбординг сразу, syncUser скроет если уже пройден
-      ob.classList.add('show');
-    }
+    if (!cachedDone) ob.classList.add('show');
   }
-
-  // Запускаем всё параллельно — не ждём последовательно
-  Promise.all([
-    syncUser(),       // проверит БД и скроет онбординг если нужно
-    loadQuestions(),  // грузит ленту
-    loadUserRank()    // грузит рейтинг пользователя
-  ]);
-  loadProfile();
 });
 
 // ============ FOLLOW LIST MODAL ============
