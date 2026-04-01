@@ -2049,7 +2049,7 @@ function renderQuestions(questions) {
       else if (delta < 0) deltaHtml = '<span class="delta-badge delta-dn">↓ ' + delta + '% за ' + period + '</span>';
     }
 
-    const liveOrResolved = isResolved ? '🏁 Завершён' : '<span class="live-dot"></span>' + total;
+    const liveOrResolved = isResolved ? '🏁 Завершён' : '<span class="live-dot"></span><span style="font-size:12px;color:var(--text2);">' + total + ' голосов</span>';
     const footerDate = isResolved ? '✓ Завершён' : '📅 ' + (q.closes_at ? new Date(q.closes_at).toLocaleDateString('ru') : 'Открыт');
 
     card.innerHTML =
@@ -2080,7 +2080,7 @@ function renderQuestions(questions) {
         '</div>' +
       '</div>' +
       '<div class="q-card-footer-bar" onclick="openQuestionDetail(\'' + q.id + '\')" style="cursor:pointer;">' +
-        '<span style="font-size:11px;color:var(--text2);">👥 ' + total + ' · ' + footerDate + ' · 💬 ' + (q._commentCount || 0) + '</span>' +
+        '<span style="font-size:11px;color:var(--text2);">' + footerDate + ' · 💬 ' + (q._commentCount || 0) + '</span>' +
         '<span onclick="event.stopPropagation();openQuestionDetail(\'' + q.id + '\')" class="discuss-btn">💬 Обсудить</span>' +
       '</div>';
 
