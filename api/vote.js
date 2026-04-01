@@ -33,7 +33,7 @@ export default async function handler(req, res) {
       .insert({
         user_id,
         question_id,
-        vote
+        choice: vote
       });
 
     if (voteError) {
