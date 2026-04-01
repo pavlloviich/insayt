@@ -2003,29 +2003,39 @@ function renderQuestions(questions) {
     card.setAttribute('data-status', q.status);
 
     // Блок голосования — разный для активных и завершённых
-    const voteBlock = isResolved ? `
-      <div style="padding:10px 12px;border-radius:12px;background:${resolvedYes?'rgba(10,191,126,0.08)':'rgba(240,84,84,0.08)'};border:1.5px solid ${resolvedYes?'rgba(10,191,126,0.25)':'rgba(240,84,84,0.25)'};display:flex;align-items:center;gap:10px;margin-bottom:10px;">
-        <div style="font-size:18px;">${resolvedYes?'✅':'❌'}</div>
-        <div>
-          <div style="font-size:13px;font-weight:800;color:${resolvedYes?'var(--green)':'var(--red)'};">${resolvedYes?'Событие случилось!':'Событие не случилось'}</div>
-          <div style="font-size:11px;color:var(--text2);margin-top:1px;">Верный ответ: ${resolvedYes?q.option_yes:q.option_no}</div>
-        </div>
-      </div>
-      <div style="height:8px;border-radius:100px;overflow:hidden;display:flex;">
-        <div style="width:${pctYes}%;background:#0F6E56;border-radius:100px 0 0 100px;"></div>
-        <div style="flex:1;background:#E24B4A;border-radius:0 100px 100px 0;"></div>
-      </div>
-    ` : `
-      <div style="height:8px;border-radius:100px;overflow:hidden;display:flex;margin-bottom:12px;">
-        <div style="width:${pctYes}%;background:#0F6E56;border-radius:100px 0 0 100px;"></div>
-        <div style="flex:1;background:#E24B4A;border-radius:0 100px 100px 0;"></div>
-      </div>
-      <div class="vote-buttons" onclick="event.stopPropagation()">
-        <button class="btn-yes" onclick="voteQuestion('${q.id}','yes',this)">✓ ${q.option_yes}</button>
-        <button class="btn-no" onclick="voteQuestion('${q.id}','no',this)">✗ ${q.option_no}</button>
-      </div>
-      <div class="voted-result pending">⏳ Прогноз принят</div>
-    `;
+    // voteBlock
+    let voteBlock;
+    if (isResolved) {
+      const bg = resolvedYes ? 'rgba(10,191,126,0.08)' : 'rgba(240,84,84,0.08)';
+      const border = resolvedYes ? 'rgba(10,191,126,0.25)' : 'rgba(240,84,84,0.25)';
+      const icon = resolvedYes ? '✅' : '❌';
+      const title = resolvedYes ? 'Событие случилось!' : 'Событие не случилось';
+      const titleColor = resolvedYes ? 'var(--green)' : 'var(--red)';
+      const answer = resolvedYes ? q.option_yes : q.option_no;
+      voteBlock =
+        '<div style="padding:10px 12px;border-radius:12px;background:' + bg + ';border:1.5px solid ' + border + ';display:flex;align-items:center;gap:10px;margin-bottom:10px;">' +
+          '<div style="font-size:18px;">' + icon + '</div>' +
+          '<div>' +
+            '<div style="font-size:13px;font-weight:800;color:' + titleColor + ';">' + title + '</div>' +
+            '<div style="font-size:11px;color:var(--text2);margin-top:1px;">Верный ответ: ' + answer + '</div>' +
+          '</div>' +
+        '</div>' +
+        '<div style="height:8px;border-radius:100px;overflow:hidden;display:flex;">' +
+          '<div style="width:' + pctYes + '%;background:#0F6E56;border-radius:100px 0 0 100px;"></div>' +
+          '<div style="flex:1;background:#E24B4A;border-radius:0 100px 100px 0;"></div>' +
+        '</div>';
+    } else {
+      voteBlock =
+        '<div style="height:8px;border-radius:100px;overflow:hidden;display:flex;margin-bottom:12px;">' +
+          '<div style="width:' + pctYes + '%;background:#0F6E56;border-radius:100px 0 0 100px;"></div>' +
+          '<div style="flex:1;background:#E24B4A;border-radius:0 100px 100px 0;"></div>' +
+        '</div>' +
+        '<div class="vote-buttons" onclick="event.stopPropagation()">' +
+          '<button class="btn-yes" onclick="voteQuestion(\'' + q.id + '\',\'yes\',this)">✓ ' + q.option_yes + '</button>' +
+          '<button class="btn-no" onclick="voteQuestion(\'' + q.id + '\',\'no\',this)">✗ ' + q.option_no + '</button>' +
+        '</div>' +
+        '<div class="voted-result pending">⏳ Прогноз принят</div>';
+    }
 
     // Считаем дельту из снапшота
     let deltaHtml = '';
@@ -2039,17 +2049,12 @@ function renderQuestions(questions) {
       else if (delta < 0) deltaHtml = '<span class="delta-badge delta-dn">↓ ' + delta + '% за ' + period + '</span>';
     }
 
-    const liveOrResolved = isResolved
-      ? '🏁 Завершён'
-      : '<span class="live-dot"></span>' + total;
-
-    const footerDate = isResolved
-      ? '✓ Завершён'
-      : '📅 ' + (q.closes_at ? new Date(q.closes_at).toLocaleDateString('ru') : 'Открыт');
+    const liveOrResolved = isResolved ? '🏁 Завершён' : '<span class="live-dot"></span>' + total;
+    const footerDate = isResolved ? '✓ Завершён' : '📅 ' + (q.closes_at ? new Date(q.closes_at).toLocaleDateString('ru') : 'Открыт');
 
     card.innerHTML =
       '<div class="q-card-accent"></div>' +
-      '<div class="q-card-body" onclick="openQuestionDetail('' + q.id + '')" style="cursor:pointer;">' +
+      '<div class="q-card-body" onclick="openQuestionDetail(\'' + q.id + '\')" style="cursor:pointer;">' +
         '<div class="q-meta">' +
           '<div style="display:flex;align-items:center;gap:6px;">' +
             '<div class="q-topic economy">' + q.topic + '</div>' +
@@ -2074,9 +2079,9 @@ function renderQuestions(questions) {
           voteBlock +
         '</div>' +
       '</div>' +
-      '<div class="q-card-footer-bar" onclick="openQuestionDetail('' + q.id + '')" style="cursor:pointer;">' +
+      '<div class="q-card-footer-bar" onclick="openQuestionDetail(\'' + q.id + '\')" style="cursor:pointer;">' +
         '<span style="font-size:11px;color:var(--text2);">👥 ' + total + ' · ' + footerDate + ' · 💬 ' + (q._commentCount || 0) + '</span>' +
-        '<span onclick="event.stopPropagation();openQuestionDetail('' + q.id + '')" class="discuss-btn">💬 Обсудить</span>' +
+        '<span onclick="event.stopPropagation();openQuestionDetail(\'' + q.id + '\')" class="discuss-btn">💬 Обсудить</span>' +
       '</div>';
 
     feed.appendChild(card);
