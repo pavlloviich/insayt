@@ -1665,12 +1665,12 @@ async function syncUser() {
     name: currentUser.name,
     username: currentUser.username,
     photo_url: currentUser.photo
-  }, { onConflict: 'id' }).select('onboarding_done, topics').single();
+  }, { onConflict: 'id' }).select('onboarding_done, topics, points').single();
 
   if (error) { console.error('syncUser error:', error); return; }
 
   const ob = document.getElementById('onboarding');
-  if (data?.onboarding_done) {
+  if (data?.onboarding_done === true) {
     // Онбординг уже пройден — скрываем и кешируем локально
     if (ob) ob.classList.remove('show');
     try { localStorage.setItem('insayt_onboarding_done', '1'); } catch(e) {}
@@ -2333,19 +2333,16 @@ window.addEventListener('DOMContentLoaded', async () => {
   // Синхронизируем пользователя — он сам решает про онбординг на основе БД
   await syncUser();
 
-  // Если syncUser не скрыл онбординг (нет id или БД не ответила) — проверяем локально
-  const key = 'insayt_ob_' + (currentUser.id || 'guest');
-  let needOnboarding = true;
-  try { if (localStorage.getItem(key) || localStorage.getItem('insayt_onboarding_done')) needOnboarding = false; } catch(e) {}
-  try { if (sessionStorage.getItem('insayt_ob')) needOnboarding = false; } catch(e) {}
-  if (document.cookie.includes('insayt_ob=1')) needOnboarding = false;
-
+  // Fallback: если syncUser не показал/скрыл онбординг — проверяем локальный кэш
   const ob = document.getElementById('onboarding');
   if (ob && !ob.classList.contains('show')) {
-    // Показываем если нужен онбординг — даже без currentUser.id (браузер без Telegram)
-    if (needOnboarding) {
-      ob.classList.add('show');
-    }
+    const key = 'insayt_ob_' + (currentUser.id || 'guest');
+    let cachedDone = false;
+    try { if (localStorage.getItem(key) || localStorage.getItem('insayt_onboarding_done')) cachedDone = true; } catch(e) {}
+    try { if (sessionStorage.getItem('insayt_ob')) cachedDone = true; } catch(e) {}
+    if (document.cookie.includes('insayt_ob=1')) cachedDone = true;
+    // Показываем если нет локального кэша — значит новый пользователь
+    if (!cachedDone) ob.classList.add('show');
   }
   // loadQuestions и loadUserRank независимы — запускаем параллельно
   Promise.all([loadQuestions(), loadUserRank()]);
