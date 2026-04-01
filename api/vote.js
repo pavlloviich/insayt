@@ -104,16 +104,38 @@ export default async function handler(req, res) {
       });
     }
 
-    const field = vote === 'yes' ? 'votes_yes' : 'votes_no';
+    const { data: currentQuestion, error: currentQuestionError } = await db
+      .from('questions')
+      .select('id, votes_yes, votes_no')
+      .eq('id', question_id)
+      .single();
 
-    const { error: updateError } = await db.rpc('increment_vote', {
-      q_id: question_id,
-      field_name: field
-    });
+    if (currentQuestionError) {
+      return res.status(500).json({
+        step: 'select_current_question',
+        error: currentQuestionError.message
+      });
+    }
+
+    const nextVotesYes = vote === 'yes'
+      ? (currentQuestion.votes_yes || 0) + 1
+      : (currentQuestion.votes_yes || 0);
+
+    const nextVotesNo = vote === 'no'
+      ? (currentQuestion.votes_no || 0) + 1
+      : (currentQuestion.votes_no || 0);
+
+    const { error: updateError } = await db
+      .from('questions')
+      .update({
+        votes_yes: nextVotesYes,
+        votes_no: nextVotesNo
+      })
+      .eq('id', question_id);
 
     if (updateError) {
       return res.status(500).json({
-        step: 'increment_vote',
+        step: 'update_question_counts',
         error: updateError.message
       });
     }
