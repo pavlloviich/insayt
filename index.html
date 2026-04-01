@@ -2960,7 +2960,7 @@ function obVote(choice) {
   obVoted = true;
 }
 
-async async function finishOnboarding() {
+async function finishOnboarding() {
   // Сохраняем флаг всеми доступными способами
   const key = 'insayt_ob_' + (currentUser.id || 'guest');
   try { localStorage.setItem(key, '1'); } catch(e) {}
