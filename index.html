@@ -1223,22 +1223,18 @@
       <div class="ob-topic-card" onclick="toggleTopic(this,'politics')">
         <div class="ob-topic-emoji">🏛</div>
         <div class="ob-topic-name">Политика</div>
-        <div class="ob-topic-count">1,842 вопроса</div>
       </div>
       <div class="ob-topic-card" onclick="toggleTopic(this,'crypto')">
         <div class="ob-topic-emoji">₿</div>
         <div class="ob-topic-name">Крипта</div>
-        <div class="ob-topic-count">980 вопросов</div>
       </div>
       <div class="ob-topic-card" onclick="toggleTopic(this,'tech')">
         <div class="ob-topic-emoji">💻</div>
         <div class="ob-topic-name">Технологии</div>
-        <div class="ob-topic-count">1,567 вопросов</div>
       </div>
       <div class="ob-topic-card" onclick="toggleTopic(this,'economy')">
         <div class="ob-topic-emoji">💰</div>
         <div class="ob-topic-name">Экономика</div>
-        <div class="ob-topic-count">2,103 вопроса</div>
       </div>
     </div>
     <div class="ob-bottom">
@@ -1260,8 +1256,8 @@
     </div>
     <div class="ob-question-wrap">
       <div class="ob-q-card" id="ob-q-card">
-        <div class="ob-q-label">🔥 Горячий вопрос • 8,241 голос</div>
-        <div class="ob-q-text">Доллар будет выше 100 рублей к 1 июля 2026?</div>
+        <div class="ob-q-label">🔥 Горячий вопрос • <span id="ob-q-votes">...</span></div>
+        <div class="ob-q-text" id="ob-q-text">Загружаем вопрос...</div>
         <div class="ob-vote-btns" id="ob-vote-btns">
           <button class="ob-btn-yes" onclick="obVote('yes')">✓ ДА</button>
           <button class="ob-btn-no" onclick="obVote('no')">✗ НЕТ</button>
@@ -1786,17 +1782,11 @@ function renderMyQuestions(questions) {
 async function loadUserRank() {
   if (!currentUser.id) return;
 
-  // Общее количество пользователей
-  const { count } = await db
-    .from('users')
-    .select('*', { count: 'exact', head: true });
-
-  // Место пользователя — считаем сколько людей набрали больше очков
-  const { data: userData } = await db
-    .from('users')
-    .select('points')
-    .eq('id', currentUser.id)
-    .single();
+  // Параллельно: данные юзера + общее кол-во
+  const [{ data: userData }, { count }] = await Promise.all([
+    db.from('users').select('points').eq('id', currentUser.id).single(),
+    db.from('users').select('*', { count: 'exact', head: true })
+  ]);
 
   if (!userData) return;
 
@@ -1833,6 +1823,16 @@ async function loadQuestions() {
     .limit(30);
   if (error) { console.error('loadQuestions error:', error); return; }
   if (data && data.length > 0) {
+    // Обновляем горячий вопрос в онбординге — берём первый из отсортированных
+    const hotQ = data.find(q => q.status === 'active') || data[0];
+    if (hotQ) {
+      _obHotQuestionId = hotQ.id;
+      const obText = document.getElementById('ob-q-text');
+      const obVotes = document.getElementById('ob-q-votes');
+      if (obText) obText.textContent = hotQ.text;
+      if (obVotes) obVotes.textContent = (hotQ.votes_yes + hotQ.votes_no).toLocaleString('ru') + ' голосов';
+    }
+
     // Подгружаем кол-во комментариев для всех вопросов
     const qIds = data.map(q => q.id);
     const { data: commentCounts } = await db
@@ -2094,7 +2094,8 @@ async function voteQuestion(questionId, choice, btn) {
   const card = document.getElementById('q-' + questionId);
   if (card.classList.contains('voted')) return;
 
-  // Сохраняем голос
+  btn.disabled = true;
+
   const { error } = await db.from('votes').insert({
     user_id: currentUser.id,
     question_id: questionId,
@@ -2104,32 +2105,63 @@ async function voteQuestion(questionId, choice, btn) {
   if (error) {
     if (error.code === '23505') showToast('Ты уже голосовал!');
     else showToast('Ошибка: ' + error.message);
+    btn.disabled = false;
     return;
   }
 
-  // Обновляем счётчик
+  // Обновляем счётчик в БД
   const field = choice === 'yes' ? 'votes_yes' : 'votes_no';
   await db.rpc('increment_vote', { question_id: questionId, field_name: field });
 
-  // Эмоциональная метка
-  const resultEl = card.querySelector('.voted-result');
-  if (resultEl) {
-    const barFill = card.querySelector('.vote-bar-fill');
-    const pctYes = barFill ? parseFloat(barFill.style.width) : 50;
-    const myPct = choice === 'yes' ? pctYes : 100 - pctYes;
-    const choiceLabel = choice === 'yes'
-      ? (card.querySelector('.btn-yes')?.textContent?.replace('✓ ','') || 'ДА')
-      : (card.querySelector('.btn-no')?.textContent?.replace('✗ ','') || 'НЕТ');
+  // Получаем свежие данные по вопросу
+  const { data: fresh } = await db
+    .from('questions')
+    .select('votes_yes, votes_no, option_yes, option_no')
+    .eq('id', questionId)
+    .single();
+
+  card.classList.add('voted');
+
+  if (fresh) {
+    const total = fresh.votes_yes + fresh.votes_no;
+    const pctYes = total > 0 ? Math.round(fresh.votes_yes / total * 100) : 50;
+    const pctNo = 100 - pctYes;
+    const myPct = choice === 'yes' ? pctYes : pctNo;
+
+    // Обновляем большие проценты
+    const bigYes = card.querySelector('.pct-big-yes');
+    const bigNo = card.querySelector('.pct-big-no');
+    if (bigYes) bigYes.textContent = pctYes + '%';
+    if (bigNo) bigNo.textContent = pctNo + '%';
+
+    // Обновляем solid bar
+    const bars = card.querySelectorAll('.solid-bar-y, [style*="background:#0F6E56"]');
+    bars.forEach(b => { if (b.style.background === '#0F6E56' || b.classList.contains('solid-bar-y')) b.style.width = pctYes + '%'; });
+
+    // Обновляем счётчик голосов
+    const liveSpan = card.querySelector('.live-dot + span');
+    if (liveSpan) liveSpan.textContent = total + ' голосов';
+
+    // Эмоциональная метка
+    const choiceLabel = choice === 'yes' ? fresh.option_yes : fresh.option_no;
+    let label, cssClass;
     if (myPct < 35) {
-      resultEl.textContent = `⚡ Твой прогноз: ${choiceLabel} — Ты против толпы!`;
-      resultEl.className = 'voted-result underdog';
+      label = '⚡ Твой прогноз: ' + choiceLabel + ' — Ты против толпы!';
+      cssClass = 'voted-result underdog';
     } else {
-      resultEl.textContent = `⏳ Твой прогноз: ${choiceLabel}`;
-      resultEl.className = 'voted-result pending';
+      label = '⏳ Твой прогноз: ' + choiceLabel;
+      cssClass = 'voted-result pending';
+    }
+
+    const resultEl = card.querySelector('.voted-result');
+    if (resultEl) {
+      resultEl.textContent = label;
+      resultEl.className = cssClass;
     }
   }
-  card.classList.add('voted');
+
   showToast('✅ Прогноз принят! +20 очков');
+  btn.disabled = false;
 }
 
 // Загружаем рейтинг
@@ -2330,22 +2362,26 @@ window.addEventListener('DOMContentLoaded', async () => {
     rankEl.textContent = `@${currentUser.username} • Загрузка рейтинга...`;
   }
 
-  // Синхронизируем пользователя — он сам решает про онбординг на основе БД
-  await syncUser();
-
-  // Fallback: если syncUser не показал/скрыл онбординг — проверяем локальный кэш
+  // Проверяем локальный кэш онбординга СРАЗУ — без ожидания БД
   const ob = document.getElementById('onboarding');
-  if (ob && !ob.classList.contains('show')) {
+  if (ob) {
     const key = 'insayt_ob_' + (currentUser.id || 'guest');
     let cachedDone = false;
     try { if (localStorage.getItem(key) || localStorage.getItem('insayt_onboarding_done')) cachedDone = true; } catch(e) {}
     try { if (sessionStorage.getItem('insayt_ob')) cachedDone = true; } catch(e) {}
     if (document.cookie.includes('insayt_ob=1')) cachedDone = true;
-    // Показываем если нет локального кэша — значит новый пользователь
-    if (!cachedDone) ob.classList.add('show');
+    if (!cachedDone && currentUser.id) {
+      // Показываем онбординг сразу, syncUser скроет если уже пройден
+      ob.classList.add('show');
+    }
   }
-  // loadQuestions и loadUserRank независимы — запускаем параллельно
-  Promise.all([loadQuestions(), loadUserRank()]);
+
+  // Запускаем всё параллельно — не ждём последовательно
+  Promise.all([
+    syncUser(),       // проверит БД и скроет онбординг если нужно
+    loadQuestions(),  // грузит ленту
+    loadUserRank()    // грузит рейтинг пользователя
+  ]);
   loadProfile();
 });
 
@@ -2896,6 +2932,7 @@ let _currentProfileUserId = null;
 let _isFollowing = false;
 
 // ONBOARDING
+let _obHotQuestionId = null;
 let selectedTopics = [];
 let obVoted = false;
 
@@ -2923,7 +2960,7 @@ function obVote(choice) {
   obVoted = true;
 }
 
-async function finishOnboarding() {
+async async function finishOnboarding() {
   // Сохраняем флаг всеми доступными способами
   const key = 'insayt_ob_' + (currentUser.id || 'guest');
   try { localStorage.setItem(key, '1'); } catch(e) {}
@@ -2937,6 +2974,28 @@ async function finishOnboarding() {
       onboarding_done: true,
       topics: selectedTopics
     }).eq('id', currentUser.id);
+  }
+
+  // Применяем выбранные темы к чипам ленты
+  const topicMap = {
+    'politics': 'Политика',
+    'crypto': 'Крипта',
+    'tech': 'Технологии',
+    'economy': 'Экономика'
+  };
+  if (selectedTopics && selectedTopics.length > 0) {
+    window._userTopics = selectedTopics;
+    const chips = document.querySelectorAll('.topic-chip');
+    chips.forEach(chip => {
+      const chipText = chip.textContent.trim().toLowerCase();
+      const isSelected = selectedTopics.some(t => {
+        const mapped = (topicMap[t] || t).toLowerCase();
+        return chipText.includes(mapped);
+      });
+      if (isSelected) chip.classList.add('active');
+      else chip.classList.remove('active');
+    });
+    applyTopicFilter();
   }
 
   const ob = document.getElementById('onboarding');
