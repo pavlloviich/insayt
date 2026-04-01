@@ -37,8 +37,13 @@ export default async function handler(req, res) {
       .select();
 
     if (voteError) {
-      return res.status(500).json({ step: 'insert_vote', error: voteError.message });
-    }
+  // если уже голосовал — просто выходим без ошибки
+  if (voteError.message.includes('duplicate key')) {
+    return res.status(200).json({ ok: true, duplicate: true });
+  }
+
+  return res.status(500).json({ step: 'insert_vote', error: voteError.message });
+}
 
     const field = vote === 'yes' ? 'votes_yes' : 'votes_no';
 
