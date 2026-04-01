@@ -1016,9 +1016,10 @@
   .ob-q-card {
     background: var(--surface);
     border: 1px solid var(--border);
-    border-radius: 24px;
-    padding: 24px;
+    border-radius: 20px;
+    padding: 18px;
     box-shadow: var(--shadow);
+    overflow: hidden;
   }
 
   .ob-q-label {
@@ -1256,13 +1257,26 @@
     </div>
     <div class="ob-question-wrap">
       <div class="ob-q-card" id="ob-q-card">
-        <div class="ob-q-label">🔥 Горячий вопрос • <span id="ob-q-votes">...</span></div>
-        <div class="ob-q-text" id="ob-q-text">Загружаем вопрос...</div>
-        <div class="ob-vote-btns" id="ob-vote-btns">
-          <button class="ob-btn-yes" onclick="obVote('yes')">✓ ДА</button>
-          <button class="ob-btn-no" onclick="obVote('no')">✗ НЕТ</button>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+          <div style="display:flex;align-items:center;gap:6px;font-size:11px;font-weight:700;color:#534AB7;background:#EEEDFE;padding:3px 10px;border-radius:20px;">🔥 Горячий вопрос</div>
+          <div style="display:flex;align-items:center;gap:4px;font-size:12px;color:#7b82a0;"><span style="width:6px;height:6px;border-radius:50%;background:#1D9E75;display:inline-block;"></span><span id="ob-q-votes">...</span></div>
         </div>
-        <div class="ob-voted" id="ob-voted">
+        <div class="ob-q-text" id="ob-q-text">Загружаем вопрос...</div>
+        <div id="ob-vote-btns">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+            <span style="font-size:28px;font-weight:800;color:#0F6E56;letter-spacing:-1px;" id="ob-pct-yes">50%</span>
+            <span style="font-size:28px;font-weight:800;color:#E24B4A;letter-spacing:-1px;" id="ob-pct-no">50%</span>
+          </div>
+          <div style="height:7px;border-radius:100px;overflow:hidden;display:flex;margin-bottom:12px;" id="ob-bar">
+            <div id="ob-bar-yes" style="width:50%;background:#0F6E56;border-radius:100px 0 0 100px;"></div>
+            <div style="flex:1;background:#E24B4A;border-radius:0 100px 100px 0;"></div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+            <button class="ob-btn-yes" onclick="obVote('yes')">✓ Да</button>
+            <button class="ob-btn-no" onclick="obVote('no')">✗ Нет</button>
+          </div>
+        </div>
+        <div class="ob-voted" id="ob-voted" style="display:none;">
           <div class="ob-voted-icon">🎯</div>
           <div class="ob-voted-text">Прогноз принят!</div>
           <div class="ob-voted-sub">+20 очков когда узнаем результат</div>
@@ -1827,10 +1841,19 @@ async function loadQuestions() {
     const hotQ = data.find(q => q.status === 'active') || data[0];
     if (hotQ) {
       _obHotQuestionId = hotQ.id;
+      const total = hotQ.votes_yes + hotQ.votes_no;
+      const pctYes = total > 0 ? Math.round(hotQ.votes_yes / total * 100) : 50;
+      const pctNo = 100 - pctYes;
       const obText = document.getElementById('ob-q-text');
       const obVotes = document.getElementById('ob-q-votes');
+      const obPctYes = document.getElementById('ob-pct-yes');
+      const obPctNo = document.getElementById('ob-pct-no');
+      const obBarYes = document.getElementById('ob-bar-yes');
       if (obText) obText.textContent = hotQ.text;
-      if (obVotes) obVotes.textContent = (hotQ.votes_yes + hotQ.votes_no).toLocaleString('ru') + ' голосов';
+      if (obVotes) obVotes.textContent = total.toLocaleString('ru') + ' голосов';
+      if (obPctYes) obPctYes.textContent = pctYes + '%';
+      if (obPctNo) obPctNo.textContent = pctNo + '%';
+      if (obBarYes) obBarYes.style.width = pctYes + '%';
     }
 
     // Подгружаем кол-во комментариев для всех вопросов
@@ -2027,7 +2050,7 @@ function renderQuestions(questions) {
     } else {
       voteBlock =
         '<div style="height:8px;border-radius:100px;overflow:hidden;display:flex;margin-bottom:12px;">' +
-          '<div style="width:' + pctYes + '%;background:#0F6E56;border-radius:100px 0 0 100px;"></div>' +
+          '<div data-bar="yes" style="width:' + pctYes + '%;background:#0F6E56;border-radius:100px 0 0 100px;"></div>' +
           '<div style="flex:1;background:#E24B4A;border-radius:0 100px 100px 0;"></div>' +
         '</div>' +
         '<div class="vote-buttons" onclick="event.stopPropagation()">' +
@@ -2060,7 +2083,7 @@ function renderQuestions(questions) {
             '<div class="q-topic economy">' + q.topic + '</div>' +
             deltaHtml +
           '</div>' +
-          '<div style="display:flex;align-items:center;gap:5px;font-size:12px;color:var(--text2);">' +
+          '<div data-votes style="display:flex;align-items:center;gap:5px;font-size:12px;color:var(--text2);">' +
             liveOrResolved +
           '</div>' +
         '</div>' +
@@ -2068,12 +2091,12 @@ function renderQuestions(questions) {
         '<div class="vote-section">' +
           '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">' +
             '<div style="display:flex;align-items:baseline;gap:6px;">' +
-              '<span class="pct-big pct-big-yes">' + pctYes + '%</span>' +
+              '<span class="pct-big pct-big-yes" data-pct="yes">' + pctYes + '%</span>' +
               '<span style="font-size:12px;color:var(--text2);">Да</span>' +
             '</div>' +
             '<div style="display:flex;align-items:baseline;gap:6px;">' +
               '<span style="font-size:12px;color:var(--text2);">Нет</span>' +
-              '<span class="pct-big pct-big-no">' + pctNo + '%</span>' +
+              '<span class="pct-big pct-big-no" data-pct="no">' + pctNo + '%</span>' +
             '</div>' +
           '</div>' +
           voteBlock +
@@ -2129,18 +2152,18 @@ async function voteQuestion(questionId, choice, btn) {
     const myPct = choice === 'yes' ? pctYes : pctNo;
 
     // Обновляем большие проценты
-    const bigYes = card.querySelector('.pct-big-yes');
-    const bigNo = card.querySelector('.pct-big-no');
+    const bigYes = card.querySelector('[data-pct="yes"]');
+    const bigNo = card.querySelector('[data-pct="no"]');
     if (bigYes) bigYes.textContent = pctYes + '%';
     if (bigNo) bigNo.textContent = pctNo + '%';
 
     // Обновляем solid bar
-    const bars = card.querySelectorAll('.solid-bar-y, [style*="background:#0F6E56"]');
-    bars.forEach(b => { if (b.style.background === '#0F6E56' || b.classList.contains('solid-bar-y')) b.style.width = pctYes + '%'; });
+    const barEl = card.querySelector('[data-bar="yes"]');
+    if (barEl) barEl.style.width = pctYes + '%';
 
     // Обновляем счётчик голосов
-    const liveSpan = card.querySelector('.live-dot + span');
-    if (liveSpan) liveSpan.textContent = total + ' голосов';
+    const votesEl = card.querySelector('[data-votes]');
+    if (votesEl) votesEl.innerHTML = '<span class="live-dot"></span><span style="font-size:12px;color:var(--text2);">' + total + ' голосов</span>';
 
     // Эмоциональная метка
     const choiceLabel = choice === 'yes' ? fresh.option_yes : fresh.option_no;
