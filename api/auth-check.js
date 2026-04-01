@@ -13,20 +13,19 @@ function verifyTelegramInitData(initData, botToken) {
     .join('\n');
 
   const secretKey = crypto
-    .createHash('sha256')
+    .createHmac('sha256', 'WebAppData')
     .update(botToken)
     .digest();
 
-  const hmac = crypto
+  const calculatedHash = crypto
     .createHmac('sha256', secretKey)
     .update(dataCheckString)
     .digest('hex');
 
-  return hmac === hash;
+  return calculatedHash === hash;
 }
 
 export default async function handler(req, res) {
-  // CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -41,24 +40,16 @@ export default async function handler(req, res) {
 
   try {
     let body = req.body;
-
-    if (typeof body === 'string') {
-      body = JSON.parse(body);
-    }
+    if (typeof body === 'string') body = JSON.parse(body);
 
     const { initData } = body || {};
-
     if (!initData) {
       return res.status(400).json({ error: 'initData required' });
     }
 
-    const isValid = verifyTelegramInitData(
-      initData,
-      process.env.BOT_TOKEN
-    );
+    const ok = verifyTelegramInitData(initData, process.env.BOT_TOKEN);
 
-    return res.status(200).json({ ok: isValid });
-
+    return res.status(200).json({ ok });
   } catch (e) {
     return res.status(500).json({ error: e.message });
   }
