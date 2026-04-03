@@ -20,6 +20,35 @@
     --text2: #7b82a0;
     --border: rgba(61,90,241,0.12);
     --shadow: 0 2px 16px rgba(61,90,241,0.08);
+    /* iOS 26 Liquid Glass */
+    --glass-bg: rgba(255,255,255,0.65);
+    --glass-border: rgba(255,255,255,0.9);
+    --glass-shadow: 0 8px 32px rgba(61,90,241,0.1);
+    --nav-bg: rgba(255,255,255,0.72);
+    --nav-border: rgba(255,255,255,0.9);
+    --header-bg: rgba(255,255,255,0.72);
+    --header-border: rgba(255,255,255,0.9);
+  }
+
+  body.theme-dark {
+    --bg: #0f1020;
+    --surface: rgba(255,255,255,0.07);
+    --surface2: rgba(255,255,255,0.04);
+    --accent: #6b8fff;
+    --accent2: #4d6fe8;
+    --green: #4ade80;
+    --red: #f87171;
+    --text: rgba(255,255,255,0.95);
+    --text2: rgba(255,255,255,0.45);
+    --border: rgba(255,255,255,0.1);
+    --shadow: 0 8px 32px rgba(0,0,0,0.3);
+    --glass-bg: rgba(255,255,255,0.07);
+    --glass-border: rgba(255,255,255,0.14);
+    --glass-shadow: 0 8px 32px rgba(0,0,0,0.25);
+    --nav-bg: rgba(20,22,45,0.75);
+    --nav-border: rgba(255,255,255,0.12);
+    --header-bg: rgba(20,22,45,0.75);
+    --header-border: rgba(255,255,255,0.12);
   }
 
   * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color: transparent; }
@@ -32,21 +61,32 @@
     max-width: 430px;
     margin: 0 auto;
     overflow-x: hidden;
+    transition: background 0.3s, color 0.3s;
   }
 
-  /* HEADER */
+  body.theme-dark {
+    background: linear-gradient(160deg, #0f1635 0%, #0d1020 60%, #0a0d1a 100%);
+    background-attachment: fixed;
+  }
+
+  /* HEADER — iOS 26 Liquid Glass */
   .header {
-    padding: 16px 20px 12px;
+    margin: 10px 14px 0;
+    padding: 0 18px;
+    height: 54px;
     display: flex;
     align-items: center;
     justify-content: space-between;
     position: sticky;
-    top: 0;
+    top: 10px;
     z-index: 100;
-    background: rgba(245,246,250,0.95);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    border-bottom: 1px solid var(--border);
+    background: var(--header-bg);
+    backdrop-filter: blur(28px);
+    -webkit-backdrop-filter: blur(28px);
+    border: 1px solid var(--header-border);
+    border-radius: 22px;
+    box-shadow: var(--glass-shadow), inset 0 1px 0 rgba(255,255,255,0.4);
+    transition: background 0.3s, border-color 0.3s;
   }
 
   .logo {
@@ -75,9 +115,11 @@
 
   /* USER CARD */
   .user-card {
-    margin: 16px 20px;
-    background: linear-gradient(135deg, rgba(61,90,241,0.08), rgba(10,191,126,0.05));
-    border: 1px solid var(--border);
+    margin: 14px 14px 0;
+    background: var(--glass-bg);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid var(--glass-border);
     border-radius: 20px;
     padding: 18px 20px;
     display: grid;
@@ -85,6 +127,8 @@
     gap: 12px;
     position: relative;
     overflow: hidden;
+    box-shadow: var(--glass-shadow), inset 0 1px 0 rgba(255,255,255,0.4);
+    transition: background 0.3s;
   }
 
   .user-card::before {
@@ -159,7 +203,7 @@
   .topic-chip:active { transform: scale(0.95); }
 
   /* QUESTION CARDS */
-  .feed { padding: 0 20px; display: flex; flex-direction: column; gap: 14px; }
+  .feed { padding: 0 20px 16px; display: flex; flex-direction: column; gap: 14px; }
 
   .q-card {
     background: var(--surface);
@@ -395,7 +439,7 @@
 
   /* ADD QUESTION BTN */
   .add-btn {
-    margin: 20px;
+    margin: 20px 20px 100px;
     padding: 16px;
     background: linear-gradient(135deg, var(--accent), #8b5cf6);
     border: none;
@@ -417,42 +461,60 @@
 
   .add-btn:active { transform: scale(0.98); box-shadow: 0 4px 12px rgba(108,92,231,0.2); }
 
-  /* BOTTOM NAV */
+  /* BOTTOM NAV — iOS 26 Liquid Glass плавающий пузырь */
   .bottom-nav {
     position: fixed;
-    bottom: 0; left: 50%;
+    bottom: 16px;
+    left: 50%;
     transform: translateX(-50%);
-    width: 100%;
-    max-width: 430px;
-    background: rgba(245,246,250,0.97);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    border-top: 1px solid var(--border);
+    width: calc(100% - 32px);
+    max-width: 398px;
+    background: var(--nav-bg);
+    backdrop-filter: blur(30px);
+    -webkit-backdrop-filter: blur(30px);
+    border: 1px solid var(--nav-border);
+    border-radius: 28px;
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    padding: 8px 0 20px;
+    padding: 8px 6px 10px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.5);
+    z-index: 200;
+    transition: background 0.3s, border-color 0.3s;
+  }
+
+  body.theme-dark .bottom-nav {
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.12);
   }
 
   .nav-item {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 4px;
-    padding: 6px;
+    gap: 3px;
+    padding: 6px 4px;
     cursor: pointer;
     transition: all 0.2s;
+    border-radius: 18px;
   }
 
-  .nav-icon { font-size: 22px; }
-  .nav-label { font-size: 10px; font-weight: 600; color: var(--text2); letter-spacing: 0.5px; }
-  .nav-item.active .nav-label { color: var(--accent2); }
-  .nav-item.active .nav-icon { filter: drop-shadow(0 0 6px var(--accent2)); }
+  .nav-item.active {
+    background: rgba(61,90,241,0.1);
+  }
+
+  body.theme-dark .nav-item.active {
+    background: rgba(107,143,255,0.15);
+  }
+
+  .nav-icon { font-size: 22px; transition: transform 0.2s; }
+  .nav-item.active .nav-icon { transform: scale(1.1); }
+  .nav-label { font-size: 9px; font-weight: 700; color: var(--text2); letter-spacing: 0.3px; }
+  .nav-item.active .nav-label { color: var(--accent); }
 
   /* RATING SCREEN */
   .screen { display: none; }
   .screen.active { display: block; }
 
-  .rating-list { padding: 0 20px 100px; }
+  .rating-list { padding: 0 20px 120px; }
   .rating-tab {
     flex-shrink: 0;
     padding: 7px 14px;
@@ -1401,13 +1463,13 @@
     <div class="rating-tab" data-topic="Экономика" onclick="switchRatingTab(this)">💰 Экономика</div>
   </div>
 
-  <div class="rating-list pb-100" id="rating-list">
+  <div class="rating-list pb-120" id="rating-list">
     <div style="text-align:center; padding:40px; color:var(--text2);">Загружаем рейтинг...</div>
   </div>
 </div>
 
 <!-- SCREEN: PROFILE -->
-<div class="screen" id="screen-profile" style="overflow-y:auto; padding-bottom:100px;">
+<div class="screen" id="screen-profile" style="overflow-y:auto; padding-bottom:120px;">
   <div class="profile-hero">
     <div class="profile-avatar" id="profile-avatar">😎</div>
     <div class="profile-name" id="profile-name">Иван Петров</div>
@@ -1423,6 +1485,15 @@
       <div class="follow-stat-label">Подписчики</div>
     </div>
   </div>
+  <!-- Переключатель темы -->
+  <div style="display:flex; align-items:center; justify-content:center; gap:8px; padding:12px 20px 4px;">
+    <div style="font-size:12px; color:var(--text2); font-weight:600;">Тема:</div>
+    <div id="theme-toggle" onclick="toggleTheme()" style="display:flex; align-items:center; gap:6px; background:var(--surface2); border:1px solid var(--border); border-radius:20px; padding:6px 14px; cursor:pointer; transition:all 0.2s; user-select:none;">
+      <span id="theme-icon">☀️</span>
+      <span id="theme-label" style="font-size:12px; font-weight:700; color:var(--text2);">Светлая</span>
+    </div>
+  </div>
+
   <div class="profile-tabs">
     <button class="profile-tab-btn active" onclick="switchProfileTab('stats', this)">📊 Статистика</button>
     <button class="profile-tab-btn" onclick="switchProfileTab('questions', this)">📋 Вопросы</button>
@@ -1471,7 +1542,7 @@
 </div>
 
 <!-- SCREEN: ADD QUESTION -->
-<div class="screen" id="screen-add" style="overflow-y:auto; padding-bottom:100px;">
+<div class="screen" id="screen-add" style="overflow-y:auto; padding-bottom:120px;">
 
   <div style="padding:20px 20px 16px; border-bottom:1px solid var(--border);">
     <div style="font-family:'Bebas Neue',sans-serif; font-size:32px; letter-spacing:2px; margin-bottom:4px;">Новый вопрос</div>
@@ -1795,20 +1866,14 @@ async function loadProfile() {
   const betterThan = total > 1 ? Math.round((worse / (total - 1)) * 100) : 0;
   document.getElementById('stat-better').textContent = betterThan + '%';
 
-  // Загружаем вопросы пользователя через API (агрегация из view)
-  try {
-    const myQRes = await fetch('https://insayt.vercel.app/api/questions-my', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ initData: window.Telegram?.WebApp?.initData || '' })
-    });
-    const myQPayload = await myQRes.json();
-    if (myQPayload.ok && myQPayload.questions) {
-      renderMyQuestions(myQPayload.questions);
-    }
-  } catch(e) {
-    console.error('loadProfile myQ error:', e);
-  }
+  // Загружаем вопросы пользователя
+  const { data: myQ } = await db
+    .from('questions')
+    .select('*')
+    .eq('author_id', currentUser.id)
+    .order('created_at', { ascending: false });
+
+  if (myQ && myQ.length > 0) renderMyQuestions(myQ);
 }
 
 function renderMyQuestions(questions) {
@@ -2484,6 +2549,48 @@ async function saveQuestion(text, optYes, optNo, topic, closesAt) {
 }
 
 // Применяем данные пользователя к интерфейсу после загрузки
+// ─── THEME SYSTEM ─────────────────────────────────────────────────────────────
+function initTheme() {
+  let saved = null;
+  try { saved = localStorage.getItem('insayt_theme'); } catch(e) {}
+  if (saved === 'dark' || saved === 'light') {
+    applyTheme(saved);
+  } else {
+    // Детектируем системную тему
+    const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    applyTheme(prefersDark ? 'dark' : 'light');
+  }
+  // Слушаем изменение системной темы
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
+    let saved = null;
+    try { saved = localStorage.getItem('insayt_theme'); } catch(err) {}
+    if (!saved) applyTheme(e.matches ? 'dark' : 'light');
+  });
+}
+
+function applyTheme(theme) {
+  if (theme === 'dark') {
+    document.body.classList.add('theme-dark');
+  } else {
+    document.body.classList.remove('theme-dark');
+  }
+  const icon = document.getElementById('theme-icon');
+  const label = document.getElementById('theme-label');
+  if (icon) icon.textContent = theme === 'dark' ? '🌙' : '☀️';
+  if (label) label.textContent = theme === 'dark' ? 'Тёмная' : 'Светлая';
+}
+
+function toggleTheme() {
+  const isDark = document.body.classList.contains('theme-dark');
+  const next = isDark ? 'light' : 'dark';
+  try { localStorage.setItem('insayt_theme', next); } catch(e) {}
+  applyTheme(next);
+}
+
+// Применяем тему сразу — до DOMContentLoaded чтобы не было мигания
+initTheme();
+// ─────────────────────────────────────────────────────────────────────────────
+
 window.addEventListener('DOMContentLoaded', async () => {
   // Сброс онбординга по параметру URL (для тестирования)
   const urlParams = new URLSearchParams(window.location.search);
