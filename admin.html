@@ -111,8 +111,9 @@ body { background:#f5f6fa; font-family:'Manrope',sans-serif; color:#1a1a2e; max-
     <div class="stat-box"><div class="val" id="stat-users">—</div><div class="lbl">Польз.</div></div>
     <div class="stat-box"><div class="val" id="stat-votes">—</div><div class="lbl">Голосов</div></div>
   </div>
-  <div class="tabs">
+  <div class="tabs" style="flex-wrap:wrap;gap:6px;">
     <button class="tab-btn active" onclick="switchTab('questions',this)">📋 Вопросы</button>
+    <button class="tab-btn" onclick="switchTab('pending',this)">⏳ Ожидают <span id="pending-badge" style="display:none;background:#f05454;color:white;border-radius:10px;padding:1px 6px;font-size:11px;margin-left:4px;">0</span></button>
     <button class="tab-btn" onclick="switchTab('users',this)">👥 Пользователи</button>
     <button class="tab-btn" onclick="switchTab('comms',this)">📣 Рассылки</button>
   </div>
@@ -122,6 +123,17 @@ body { background:#f5f6fa; font-family:'Manrope',sans-serif; color:#1a1a2e; max-
     <div id="active-list"><div class="loading">Загрузка...</div></div>
     <div class="section-title">Закрытые вопросы</div>
     <div id="resolved-list"><div class="loading">Загрузка...</div></div>
+  </div>
+
+  <div class="tab-content" id="tab-pending">
+    <div style="background:rgba(240,84,84,0.06);border:1px solid rgba(240,84,84,0.2);border-radius:14px;padding:14px 16px;margin-bottom:16px;display:flex;align-items:center;gap:10px;">
+      <div style="font-size:24px;">⏳</div>
+      <div>
+        <div style="font-weight:800;font-size:14px;color:#f05454;">Ожидают подведения итогов</div>
+        <div style="font-size:12px;color:#7b82a0;margin-top:2px;">Дата закрытия прошла, но итог не выставлен. Нажми ✅ или ❌ чтобы завершить вопрос и уведомить участников.</div>
+      </div>
+    </div>
+    <div id="pending-list"><div class="loading">Загрузка...</div></div>
   </div>
 
   <div class="tab-content" id="tab-users">
@@ -225,6 +237,7 @@ function switchTab(name, btn) {
   document.getElementById('tab-' + name).classList.add('active');
   btn.classList.add('active');
   if (name === 'comms') loadUsersForPush();
+  if (name === 'pending') loadQuestions();
 }
 
 async function loadAll() {
@@ -247,10 +260,94 @@ async function loadStats() {
 async function loadQuestions() {
   var res = await db.from('questions').select('*').order('created_at', {ascending:false});
   if (!res.data) return;
-  var active = res.data.filter(function(q) { return q.status === 'active'; });
+  var now = new Date();
+  var active = res.data.filter(function(q) {
+    // Активные: статус active И (нет даты ИЛИ дата в будущем)
+    return q.status === 'active' && (!q.closes_at || new Date(q.closes_at) > now);
+  });
+  var pending = res.data.filter(function(q) {
+    // Ожидают: статус active НО дата закрытия уже прошла
+    return q.status === 'active' && q.closes_at && new Date(q.closes_at) <= now;
+  });
   var resolved = res.data.filter(function(q) { return q.status !== 'active'; });
+
   renderList('active-list', active, false);
   renderList('resolved-list', resolved, true);
+  renderPendingList(pending);
+
+  // Обновляем бейдж на вкладке
+  var badge = document.getElementById('pending-badge');
+  if (badge) {
+    if (pending.length > 0) {
+      badge.textContent = pending.length;
+      badge.style.display = 'inline';
+    } else {
+      badge.style.display = 'none';
+    }
+  }
+
+  // Обновляем статистику
+  loadStats();
+}
+
+function renderPendingList(questions) {
+  var container = document.getElementById('pending-list');
+  if (!container) return;
+  if (!questions.length) {
+    container.innerHTML = '<div style="text-align:center;padding:40px;"><div style="font-size:40px;margin-bottom:12px;">🎉</div><div style="font-weight:700;color:#0abf7e;font-size:15px;">Всё подведено!</div><div style="color:#7b82a0;font-size:13px;margin-top:6px;">Нет вопросов ожидающих итога</div></div>';
+    return;
+  }
+  container.innerHTML = '';
+  questions.forEach(function(q) {
+    var votesYes = q.votes_yes || 0;
+    var votesNo = q.votes_no || 0;
+    var total = votesYes + votesNo;
+    var pctYes = total > 0 ? Math.round(votesYes / total * 100) : 50;
+    var pctNo = 100 - pctYes;
+    var date = q.closes_at ? new Date(q.closes_at).toLocaleDateString('ru') : '—';
+    var daysOverdue = q.closes_at ? Math.floor((new Date() - new Date(q.closes_at)) / 86400000) : 0;
+    var dateVal = q.closes_at ? q.closes_at.substring(0,10) : '';
+
+    var card = document.createElement('div');
+    card.className = 'q-card';
+    card.style.borderColor = 'rgba(240,84,84,0.3)';
+
+    var bar = '<div style="height:8px;border-radius:100px;overflow:hidden;display:flex;margin-bottom:8px;">'
+      + '<div style="width:' + pctYes + '%;background:#0F6E56;border-radius:100px 0 0 100px;min-width:2px;"></div>'
+      + '<div style="flex:1;background:#E24B4A;border-radius:0 100px 100px 0;"></div>'
+      + '</div>';
+
+    card.innerHTML =
+      '<div class="q-meta">'
+        + '<div class="q-topic">' + q.topic + '</div>'
+        + '<div style="display:flex;align-items:center;gap:6px;">'
+          + '<span style="font-size:11px;color:#f05454;font-weight:700;">🔴 Просрочен ' + daysOverdue + ' дн.</span>'
+          + '<div class="q-date">📅 ' + date + '</div>'
+        + '</div>'
+      + '</div>'
+      + '<div class="q-text">' + q.text + '</div>'
+      + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">'
+        + '<div style="font-size:22px;font-weight:800;color:#0F6E56;">' + pctYes + '%</div>'
+        + '<div style="font-size:12px;color:#7b82a0;">👥 ' + total + ' · ✓' + votesYes + ' ✗' + votesNo + '</div>'
+        + '<div style="font-size:22px;font-weight:800;color:#f05454;">' + pctNo + '%</div>'
+      + '</div>'
+      + bar
+      + '<div style="display:flex;justify-content:space-between;font-size:12px;font-weight:700;margin-bottom:12px;">'
+        + '<span style="color:#0F6E56;">✓ ' + q.option_yes + '</span>'
+        + '<span style="color:#f05454;">✗ ' + q.option_no + '</span>'
+      + '</div>'
+      + '<div style="background:rgba(240,84,84,0.06);border-radius:12px;padding:12px;margin-bottom:10px;font-size:13px;color:#7b82a0;text-align:center;">'
+        + '⚠️ Выбери итог — участники получат уведомления'
+      + '</div>'
+      + '<div class="actions">'
+        + '<button class="btn-yes" onclick="resolve('' + q.id + '','resolved_yes',this)">✅ Сбылось</button>'
+        + '<button class="btn-no" onclick="resolve('' + q.id + '','resolved_no',this)">❌ Не сбылось</button>'
+      + '</div>'
+      + '<button class="btn-edit" style="background:rgba(10,191,126,0.08);color:#0abf7e;border-color:rgba(10,191,126,0.2);" onclick="openVoters('' + q.id + '')">👥 Кто голосовал (' + total + ')</button>'
+      + '<button class="btn-delete" onclick="deleteQuestion('' + q.id + '',this)">🗑 Удалить вопрос</button>';
+
+    container.appendChild(card);
+  });
 }
 
 function renderList(containerId, questions, isResolved) {
