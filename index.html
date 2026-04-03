@@ -2213,7 +2213,10 @@ function renderQuestions(questions) {
       '</div>' +
       '<div class="q-card-footer-bar" onclick="openQuestionDetail(\'' + q.id + '\')" style="cursor:pointer;">' +
         '<span style="font-size:11px;color:var(--text2);">' + footerDate + ' · 💬 ' + (q._commentCount || 0) + '</span>' +
-        '<span onclick="event.stopPropagation();openQuestionDetail(\'' + q.id + '\')" class="discuss-btn">💬 Обсудить</span>' +
+        '<div style="display:flex;gap:6px;" onclick="event.stopPropagation()">' +
+          '<span onclick="shareQuestion(\'' + q.id + '\',\'' + q.text.replace(/'/g, '') + '\')" style="display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:700;padding:5px 10px;border-radius:20px;background:rgba(61,90,241,0.08);color:var(--accent);cursor:pointer;">↗ Поделиться</span>' +
+          '<span onclick="openQuestionDetail(\'' + q.id + '\')" class="discuss-btn">💬 Обсудить</span>' +
+        '</div>' +
       '</div>';
 
     feed.appendChild(card);
@@ -2665,6 +2668,9 @@ async function openQuestionDetail(questionId) {
       <button onclick="voteFromDetail('yes')" style="padding:12px;background:rgba(10,191,126,0.1);color:var(--green);border:1.5px solid rgba(10,191,126,0.3);border-radius:12px;font-family:'Manrope',sans-serif;font-size:14px;font-weight:800;cursor:pointer;">✓ ${q.option_yes}</button>
       <button onclick="voteFromDetail('no')" style="padding:12px;background:rgba(240,84,84,0.1);color:var(--red);border:1.5px solid rgba(240,84,84,0.3);border-radius:12px;font-family:'Manrope',sans-serif;font-size:14px;font-weight:800;cursor:pointer;">✗ ${q.option_no}</button>
     </div>` : ''}
+    <div style="display:flex;gap:8px;margin-top:14px;padding-top:14px;border-top:1px solid var(--border);">
+      <button onclick="shareQuestion('${q.id}', '${q.text.replace(/'/g, '')}')" style="flex:1;padding:11px;border-radius:14px;background:rgba(61,90,241,0.08);color:var(--accent);border:1.5px solid rgba(61,90,241,0.15);font-family:'Manrope',sans-serif;font-size:13px;font-weight:800;cursor:pointer;">↗ Поделиться</button>
+    </div>
   `;
 
   if (!isResolved && currentUser.id && db) {
@@ -3389,6 +3395,34 @@ function applyTopicFilter() {
     card.style.display = match ? '' : 'none';
   });
 }
+
+// ─── SHARE ───────────────────────────────────────────────────────────────────
+function shareQuestion(questionId, questionText) {
+  var tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
+  var maxLen = 100;
+  var shortText = questionText.length > maxLen ? questionText.substring(0, maxLen) + '...' : questionText;
+  var url = 'https://t.me/insayt_app_bot?start=q_' + questionId;
+  var shareText = '🔮 ' + shortText + '
+
+Проголосуй в ИНСАЙТ — кто угадает?';
+
+  if (tg && tg.openTelegramLink) {
+    tg.openTelegramLink('https://t.me/share/url?url=' + encodeURIComponent(url) + '&text=' + encodeURIComponent('🔮 ' + shortText + '
+
+Проголосуй в ИНСАЙТ — кто угадает?'));
+  } else if (navigator.share) {
+    navigator.share({ title: 'ИНСАЙТ', text: shareText, url: url }).catch(function() {});
+  } else {
+    var dummy = document.createElement('textarea');
+    dummy.value = url;
+    document.body.appendChild(dummy);
+    dummy.select();
+    try { document.execCommand('copy'); showToast('📋 Ссылка скопирована!'); }
+    catch(e) { showToast('Скопируй: ' + url); }
+    document.body.removeChild(dummy);
+  }
+}
+// ─────────────────────────────────────────────────────────────────────────────
 
 function showToast(msg) {
   const t = document.getElementById('toast');
