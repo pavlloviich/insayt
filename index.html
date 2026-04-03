@@ -1795,14 +1795,20 @@ async function loadProfile() {
   const betterThan = total > 1 ? Math.round((worse / (total - 1)) * 100) : 0;
   document.getElementById('stat-better').textContent = betterThan + '%';
 
-  // Загружаем вопросы пользователя
-  const { data: myQ } = await db
-    .from('questions')
-    .select('*')
-    .eq('author_id', currentUser.id)
-    .order('created_at', { ascending: false });
-
-  if (myQ && myQ.length > 0) renderMyQuestions(myQ);
+  // Загружаем вопросы пользователя через API (агрегация из view)
+  try {
+    const myQRes = await fetch('https://insayt.vercel.app/api/questions-my', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ initData: window.Telegram?.WebApp?.initData || '' })
+    });
+    const myQPayload = await myQRes.json();
+    if (myQPayload.ok && myQPayload.questions) {
+      renderMyQuestions(myQPayload.questions);
+    }
+  } catch(e) {
+    console.error('loadProfile myQ error:', e);
+  }
 }
 
 function renderMyQuestions(questions) {
