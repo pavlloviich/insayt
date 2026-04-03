@@ -1,168 +1,115 @@
-import crypto from 'crypto';
-import { createClient } from '@supabase/supabase-js';
+// api/vote.js
+import crypto from "crypto";
+import { createClient } from "@supabase/supabase-js";
 
-const db = createClient(
+// ─── RATE LIMIT STORAGE ───────────────────────────────────────────────────────
+const lastVoteTime = new Map();
+const RATE_LIMIT_MS = 2000;
+// ─────────────────────────────────────────────────────────────────────────────
+
+const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_KEY
 );
 
-function verifyTelegramInitData(initData, botToken) {
+function validateTelegramInitData(initData, botToken) {
   const params = new URLSearchParams(initData);
-  const hash = params.get('hash');
-  if (!hash) return false;
+  const hash = params.get("hash");
+  if (!hash) return null;
 
-  params.delete('hash');
-
-  const dataCheckString = [...params.entries()]
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([key, value]) => `${key}=${value}`)
-    .join('\n');
+  params.delete("hash");
+  const entries = [...params.entries()].sort(([a], [b]) => a.localeCompare(b));
+  const dataCheckString = entries.map(([k, v]) => `${k}=${v}`).join("\n");
 
   const secretKey = crypto
-    .createHmac('sha256', 'WebAppData')
+    .createHmac("sha256", "WebAppData")
     .update(botToken)
     .digest();
 
-  const calculatedHash = crypto
-    .createHmac('sha256', secretKey)
+  const expectedHash = crypto
+    .createHmac("sha256", secretKey)
     .update(dataCheckString)
-    .digest('hex');
+    .digest("hex");
 
-  return calculatedHash === hash;
-}
+  if (expectedHash !== hash) return null;
 
-function getTelegramUserFromInitData(initData) {
-  const params = new URLSearchParams(initData);
-  const userRaw = params.get('user');
-  if (!userRaw) return null;
+  const userParam = params.get("user");
+  if (!userParam) return null;
 
   try {
-    return JSON.parse(userRaw);
+    return JSON.parse(userParam);
   } catch {
     return null;
   }
 }
 
 export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
+  if (req.method === "OPTIONS") return res.status(200).end();
+  if (req.method !== "POST")
+    return res.status(405).json({ ok: false, error: "method_not_allowed" });
+
+  const { initData, question_id, vote } = req.body || {};
+
+  if (!initData || !question_id || !vote) {
+    return res.status(400).json({ ok: false, error: "missing_fields" });
   }
 
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Only POST allowed' });
+  // 1. Validate Telegram initData
+  const BOT_TOKEN = process.env.BOT_TOKEN;
+  const user = validateTelegramInitData(initData, BOT_TOKEN);
+
+  if (!user) {
+    return res.status(401).json({ ok: false, error: "invalid_auth" });
   }
 
-  try {
-    let body = req.body;
-    if (typeof body === 'string') {
-      body = JSON.parse(body);
-    }
+  // 2. Extract user_id from validated initData — NEVER trust client
+  const user_id = user.id;
 
-    const { initData, question_id, vote } = body || {};
+  // 3. Rate limiting — in-memory, MVP-grade
+  const now = Date.now();
+  const last = lastVoteTime.get(user_id);
 
-    if (!initData || !question_id || !vote) {
-      return res.status(400).json({ error: 'Missing params' });
-    }
-
-    if (!['yes', 'no'].includes(vote)) {
-      return res.status(400).json({ error: 'Invalid vote value' });
-    }
-
-    const isValid = verifyTelegramInitData(initData, process.env.BOT_TOKEN);
-    if (!isValid) {
-      return res.status(401).json({ error: 'Invalid Telegram auth' });
-    }
-
-    const telegramUser = getTelegramUserFromInitData(initData);
-    if (!telegramUser?.id) {
-      return res.status(400).json({ error: 'Telegram user not found in initData' });
-    }
-
-    const user_id = telegramUser.id;
-
-    const { data: insertedVote, error: voteError } = await db
-      .from('votes')
-      .insert({
-        user_id,
-        question_id,
-        choice: vote
-      })
-      .select();
-
-    if (voteError) {
-      if (voteError.message.includes('duplicate key')) {
-        return res.status(200).json({ ok: true, duplicate: true });
-      }
-
-      return res.status(500).json({
-        step: 'insert_vote',
-        error: voteError.message
-      });
-    }
-
-    const { data: currentQuestion, error: currentQuestionError } = await db
-      .from('questions')
-      .select('id, votes_yes, votes_no')
-      .eq('id', question_id)
-      .single();
-
-    if (currentQuestionError) {
-      return res.status(500).json({
-        step: 'select_current_question',
-        error: currentQuestionError.message
-      });
-    }
-
-    const nextVotesYes = vote === 'yes'
-      ? (currentQuestion.votes_yes || 0) + 1
-      : (currentQuestion.votes_yes || 0);
-
-    const nextVotesNo = vote === 'no'
-      ? (currentQuestion.votes_no || 0) + 1
-      : (currentQuestion.votes_no || 0);
-
-    const { error: updateError } = await db
-      .from('questions')
-      .update({
-        votes_yes: nextVotesYes,
-        votes_no: nextVotesNo
-      })
-      .eq('id', question_id);
-
-    if (updateError) {
-      return res.status(500).json({
-        step: 'update_question_counts',
-        error: updateError.message
-      });
-    }
-
-    const { data: questionAfter, error: questionError } = await db
-      .from('questions')
-      .select('id, votes_yes, votes_no')
-      .eq('id', question_id)
-      .single();
-
-    if (questionError) {
-      return res.status(500).json({
-        step: 'select_question_after',
-        error: questionError.message
-      });
-    }
-
-    return res.status(200).json({
-      ok: true,
-      inserted_vote: insertedVote,
-      question_after: questionAfter
-    });
-
-  } catch (e) {
-    return res.status(500).json({
-      step: 'catch',
-      error: e.message
-    });
+  if (last && now - last < RATE_LIMIT_MS) {
+    return res.status(429).json({ ok: false, error: "rate_limited" });
   }
+
+  lastVoteTime.set(user_id, now);
+
+  if (lastVoteTime.size > 1000) {
+    const cutoff = now - RATE_LIMIT_MS * 10;
+    for (const [uid, ts] of lastVoteTime.entries()) {
+      if (ts < cutoff) lastVoteTime.delete(uid);
+    }
+  }
+
+  // 4. Insert into votes — single source of truth
+  const { error } = await supabase.from("votes").insert({
+    user_id,
+    question_id,
+    choice: vote,
+  });
+
+  if (error) {
+    if (error.code === "23505") {
+      return res.status(200).json({ ok: true, duplicate: true });
+    }
+    return res.status(500).json({ ok: false, error: error.message });
+  }
+
+  // 5. Return fresh aggregated data from view for instant UI update
+  // Frontend (index.html) expects data.question_after to update percentages
+  const { data: questionAfter } = await supabase
+    .from("questions_with_stats")
+    .select("votes_yes, votes_no, total_votes, option_yes, option_no")
+    .eq("id", question_id)
+    .single();
+
+  return res.status(200).json({
+    ok: true,
+    question_after: questionAfter || null,
+  });
 }
