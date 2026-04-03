@@ -1712,11 +1712,8 @@ const SUPABASE_URL = 'https://jnvlcanwkrfcjeqqwlib.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_x-ocfhMqmjrjn44Via5c8w_t_ooGf74';
 let db;
 try {
-  if (typeof supabase !== 'undefined' && supabase.createClient) {
-    db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-  } else {
-    console.error('Supabase SDK not loaded');
-  }
+  const { createClient } = supabase;
+  db = createClient(SUPABASE_URL, SUPABASE_KEY);
 } catch(e) {
   console.error('Supabase init error:', e);
 }
@@ -1724,22 +1721,12 @@ try {
 // Сохраняем/обновляем пользователя в базе
 async function syncUser() {
   if (!currentUser.id || !db) return;
-  // Timeout 5 сек для syncUser
-  const syncTimeout = new Promise((_, rej) => setTimeout(() => rej(new Error('sync_timeout')), 5000));
-  const syncQuery = db.from('users').upsert({
+  const { data, error } = await db.from('users').upsert({
     id: currentUser.id,
     name: currentUser.name,
     username: currentUser.username,
     photo_url: currentUser.photo
   }, { onConflict: 'id' }).select('onboarding_done, topics, points').single();
-  let data, error;
-  try {
-    const result = await Promise.race([syncQuery, syncTimeout]);
-    data = result.data; error = result.error;
-  } catch(te) {
-    console.warn('syncUser timeout or error:', te.message);
-    return;
-  }
 
   if (error) { console.error('syncUser error:', error); return; }
 
@@ -1837,24 +1824,21 @@ function renderMyQuestions(questions) {
   }
 
   questions.forEach(q => {
-    const votesYes = q.votes_yes || 0;
-    const votesNo = q.votes_no || 0;
-    const total = q.total_votes || (votesYes + votesNo);
-    const pctYes = total > 0 ? Math.round(votesYes / total * 100) : 50;
-    const statusLabel = q.status === 'active' ? 'Активен' : q.status === 'resolved_yes' ? '✅ Сбылось' : '❌ Не сбылось';
-    const statusColor = q.status === 'active' ? 'var(--accent)' : q.status === 'resolved_yes' ? 'var(--green)' : 'var(--red)';
+    const total = q.votes_yes + q.votes_no;
+    const pctYes = total > 0 ? Math.round(q.votes_yes / total * 100) : 50;
     const item = document.createElement('div');
-    item.style.cssText = 'background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:16px; box-shadow:var(--shadow); margin-bottom:10px;';
-    item.innerHTML =
-      '<div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">' +
-        '<div style="font-size:10px; font-weight:700; padding:3px 8px; border-radius:6px; background:rgba(61,90,241,0.1); color:var(--accent);">' + q.topic + '</div>' +
-        '<div style="font-size:11px; color:var(--text2);">👥 ' + total.toLocaleString('ru') + ' голосов</div>' +
-      '</div>' +
-      '<div style="font-size:14px; font-weight:700; color:var(--text); margin-bottom:10px; line-height:1.4;">' + q.text + '</div>' +
-      '<div style="display:flex; justify-content:space-between; align-items:center;">' +
-        '<div style="font-size:12px; color:var(--text2); font-weight:600;">ДА ' + pctYes + '% · НЕТ ' + (100-pctYes) + '%</div>' +
-        '<div style="font-size:11px; color:' + statusColor + '; background:rgba(61,90,241,0.08); padding:4px 10px; border-radius:8px;">' + statusLabel + '</div>' +
-      '</div>';
+    item.style.cssText = 'background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:16px; box-shadow:var(--shadow);';
+    item.innerHTML = `
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
+        <div style="font-size:10px; font-weight:700; padding:3px 8px; border-radius:6px; background:rgba(61,90,241,0.1); color:var(--accent);">${q.topic}</div>
+        <div style="font-size:11px; color:var(--text2);">👥 ${total.toLocaleString('ru')} голосов</div>
+      </div>
+      <div style="font-size:14px; font-weight:700; color:var(--text); margin-bottom:10px; line-height:1.4;">${q.text}</div>
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <div style="font-size:12px; color:var(--text2); font-weight:600;">ДА ${pctYes}% · НЕТ ${100-pctYes}%</div>
+        <div style="font-size:11px; color:var(--accent); background:rgba(61,90,241,0.08); padding:4px 10px; border-radius:8px;">Активен</div>
+      </div>
+    `;
     list.appendChild(item);
   });
 }
@@ -1914,33 +1898,7 @@ async function loadQuestions() {
   } catch (e) {}
 
   try {
-    // Timeout 8 сек + один retry при сбое
-    const fetchFeed = async () => {
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 8000);
-      try {
-        const r = await fetch('https://insayt.vercel.app/api/feed', {
-          cache: 'no-store',
-          signal: controller.signal
-        });
-        clearTimeout(timer);
-        return r;
-      } catch (err) {
-        clearTimeout(timer);
-        throw err;
-      }
-    };
-    let res;
-    try {
-      res = await fetchFeed();
-    } catch (err) {
-      // Retry один раз
-      try {
-        res = await fetchFeed();
-      } catch (retryErr) {
-        throw retryErr;
-      }
-    }
+    const res = await fetch('https://insayt.vercel.app/api/feed', { cache: 'no-store' });
     const payload = await res.json();
 
     if (!res.ok || !payload.ok || !Array.isArray(payload.questions)) {
@@ -1957,6 +1915,9 @@ async function loadQuestions() {
     const sorted = rankQuestions(data);
     renderQuestions(sorted);
     applyUserTopicsFilter();
+
+    // Подгружаем комментарии и голоса асинхронно после рендера
+    loadVotesAndComments(data);
 
     const hotQ = data.find(q => q.status === 'active') || data[0];
     if (hotQ) {
@@ -2020,7 +1981,7 @@ function rankQuestions(questions) {
   const now = Date.now();
   // Считаем скор вовлечённости (голоса + свежесть)
   const withScore = questions.map(q => {
-    const total = (q.votes_yes || 0) + (q.votes_no || 0);
+    const total = q.votes_yes + q.votes_no;
     const ageHours = (now - new Date(q.created_at).getTime()) / 3600000;
     // Вовлечённость: голоса с небольшим затуханием по времени
     const engagement = total / Math.pow(ageHours + 2, 0.5);
@@ -2060,7 +2021,7 @@ async function loadVotesAndComments(data) {
 
   // Параллельно: комментарии + голоса пользователя
   const [commentsRes, votesRes] = await Promise.all([
-    db.from('comments').select('question_id').in('question_id', qIds.slice(0,50)).is('parent_id', null),
+    db.from('comments').select('question_id').in('question_id', qIds).is('parent_id', null),
     currentUser.id ? db.from('votes').select('question_id, choice').eq('user_id', currentUser.id) : Promise.resolve({ data: [] })
   ]);
 
@@ -2072,8 +2033,10 @@ async function loadVotesAndComments(data) {
       const card = document.getElementById('q-' + id);
       if (!card) return;
       const footer = card.querySelector('.q-card-footer-bar span');
-      if (footer && countMap[id]) {
-        footer.innerHTML = footer.innerHTML.replace(/💬 \d+/, '💬 ' + (countMap[id] || 0));
+      if (footer) {
+        // Обновляем всегда — в т.ч. когда 0 комментариев
+        const count = countMap[id] || 0;
+        footer.innerHTML = footer.innerHTML.replace(/💬 \d+/, '💬 ' + count);
       }
     });
   }
@@ -2160,8 +2123,8 @@ function renderQuestions(questions) {
   if (!feed) return;
   feed.innerHTML = '';
   questions.forEach(q => {
-    const total = q.total_votes || (q.votes_yes || 0) + (q.votes_no || 0);
-    const pctYes = total > 0 ? Math.round((q.votes_yes || 0) / total * 100) : 50;
+    const total = q.votes_yes + q.votes_no;
+    const pctYes = total > 0 ? Math.round(q.votes_yes / total * 100) : 50;
     const pctNo = 100 - pctYes;
     const isResolved = q.status === 'resolved_yes' || q.status === 'resolved_no';
     const resolvedYes = q.status === 'resolved_yes';
@@ -2282,15 +2245,8 @@ async function voteQuestion(questionId, choice, btn) {
 
     const data = await res.json();
 
-    if (res.status === 429 || data.error === 'rate_limited') {
-      showToast('⏳ Подожди секунду...');
-      btn.disabled = false;
-      return;
-    }
-
     if (!res.ok || !data.ok) {
-      if (data.error === 'invalid_auth') showToast('Открой через Telegram!');
-      else showToast('Ошибка: ' + (data.error || 'Не удалось проголосовать'));
+      showToast('Ошибка: ' + (data.error || 'Не удалось проголосовать'));
       btn.disabled = false;
       return;
     }
@@ -2340,6 +2296,7 @@ async function voteQuestion(questionId, choice, btn) {
     }
 
     showToast('✅ Прогноз принят! +20 очков');
+    await loadQuestions();
   } catch (e) {
     console.error('voteQuestion error:', e);
     showToast('Ошибка сети');
@@ -2546,11 +2503,9 @@ window.addEventListener('DOMContentLoaded', async () => {
     rankEl.textContent = `@${currentUser.username} • Загрузка рейтинга...`;
   }
 
-  // Запускаем данные параллельно — loadQuestions и loadUserRank сразу
-  // syncUser и loadProfile чуть позже чтобы не конкурировать с feed
-  loadQuestions();
-  loadUserRank();
-  setTimeout(() => { syncUser(); loadProfile(); }, 300);
+  // Запускаем данные параллельно сразу
+  Promise.all([syncUser(), loadQuestions(), loadUserRank()]);
+  loadProfile();
 
   // Онбординг — показываем ПОСЛЕ небольшой задержки чтобы лента успела начать грузиться
   // Но только если нет кэша — иначе мгновенно
@@ -2663,33 +2618,7 @@ async function openQuestionDetail(questionId) {
 
   let q = null;
   try {
-    // Timeout 8 сек + один retry при сбое
-    const fetchFeed = async () => {
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 8000);
-      try {
-        const r = await fetch('https://insayt.vercel.app/api/feed', {
-          cache: 'no-store',
-          signal: controller.signal
-        });
-        clearTimeout(timer);
-        return r;
-      } catch (err) {
-        clearTimeout(timer);
-        throw err;
-      }
-    };
-    let res;
-    try {
-      res = await fetchFeed();
-    } catch (err) {
-      // Retry один раз
-      try {
-        res = await fetchFeed();
-      } catch (retryErr) {
-        throw retryErr;
-      }
-    }
+    const res = await fetch('https://insayt.vercel.app/api/feed', { cache: 'no-store' });
     const payload = await res.json();
     if (res.ok && payload.ok && Array.isArray(payload.questions)) {
       q = payload.questions.find(item => item.id === questionId) || null;
@@ -3433,12 +3362,17 @@ function filterTopic(el) {
   const allChips = document.querySelectorAll('.topic-chip');
   const activeCount = Array.from(allChips).filter(c => c.classList.contains('active')).length;
 
-  // Если кликаем на единственный активный — не даём деактивировать (хотя бы одна должна быть)
   if (el.classList.contains('active') && activeCount === 1) {
-    // Вместо этого — активируем все остальные (сброс фильтра)
+    // Единственный активный — не даём снять, просто игнорируем клик
+    return;
+  }
+
+  el.classList.toggle('active');
+
+  // Если после toggle ни одного активного — активируем все (защита)
+  const newActiveCount = Array.from(allChips).filter(c => c.classList.contains('active')).length;
+  if (newActiveCount === 0) {
     allChips.forEach(c => c.classList.add('active'));
-  } else {
-    el.classList.toggle('active');
   }
 
   applyTopicFilter();
