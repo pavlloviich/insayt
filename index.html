@@ -1916,9 +1916,6 @@ async function loadQuestions() {
     renderQuestions(sorted);
     applyUserTopicsFilter();
 
-    // Подгружаем комментарии и голоса асинхронно после рендера
-    loadVotesAndComments(data);
-
     const hotQ = data.find(q => q.status === 'active') || data[0];
     if (hotQ) {
       _obHotQuestionId = hotQ.id;
@@ -1985,7 +1982,7 @@ function rankQuestions(questions) {
     const ageHours = (now - new Date(q.created_at).getTime()) / 3600000;
     // Вовлечённость: голоса с небольшим затуханием по времени
     const engagement = total / Math.pow(ageHours + 2, 0.5);
-    const isNew = ageHours < 24;
+    const isNew = ageHours < 24 && q.status === 'active';
     return { ...q, _score: engagement, _isNew: isNew, _age: ageHours };
   });
 
@@ -2033,10 +2030,8 @@ async function loadVotesAndComments(data) {
       const card = document.getElementById('q-' + id);
       if (!card) return;
       const footer = card.querySelector('.q-card-footer-bar span');
-      if (footer) {
-        // Обновляем всегда — в т.ч. когда 0 комментариев
-        const count = countMap[id] || 0;
-        footer.innerHTML = footer.innerHTML.replace(/💬 \d+/, '💬 ' + count);
+      if (footer && countMap[id]) {
+        footer.innerHTML = footer.innerHTML.replace(/💬 \d+/, '💬 ' + (countMap[id] || 0));
       }
     });
   }
@@ -2127,6 +2122,7 @@ function renderQuestions(questions) {
     const pctYes = total > 0 ? Math.round(q.votes_yes / total * 100) : 50;
     const pctNo = 100 - pctYes;
     const isResolved = q.status === 'resolved_yes' || q.status === 'resolved_no';
+    const isAwaiting = q.status === 'awaiting';
     const resolvedYes = q.status === 'resolved_yes';
 
     const card = document.createElement('div');
@@ -2181,8 +2177,20 @@ function renderQuestions(questions) {
       else if (delta < 0) deltaHtml = '<span class="delta-badge delta-dn">↓ ' + delta + '% за ' + period + '</span>';
     }
 
-    const liveOrResolved = isResolved ? '🏁 Завершён' : '<span class="live-dot"></span><span style="font-size:12px;color:var(--text2);">' + total + ' голосов</span>';
-    const footerDate = isResolved ? '✓ Завершён' : '📅 ' + (q.closes_at ? new Date(q.closes_at).toLocaleDateString('ru') : 'Открыт');
+    // Определяем статус: завершён / ожидает итога / активен
+    const now_ms = Date.now();
+    const isExpired = !isResolved && (isAwaiting || (q.closes_at && new Date(q.closes_at).getTime() < now_ms));
+    let liveOrResolved, footerDate;
+    if (isResolved) {
+      liveOrResolved = '🏁 Завершён';
+      footerDate = '✓ Завершён';
+    } else if (isExpired) {
+      liveOrResolved = '<span style="font-size:11px;font-weight:700;color:var(--red);background:rgba(240,84,84,0.1);padding:2px 8px;border-radius:10px;">⏳ Ожидает итога</span>';
+      footerDate = '📅 ' + new Date(q.closes_at).toLocaleDateString('ru');
+    } else {
+      liveOrResolved = '<span class="live-dot"></span><span style="font-size:12px;color:var(--text2);">' + total + ' голосов</span>';
+      footerDate = '📅 ' + (q.closes_at ? new Date(q.closes_at).toLocaleDateString('ru') : 'Открыт');
+    }
 
     card.innerHTML =
       '<div class="q-card-accent"></div>' +
@@ -2213,10 +2221,7 @@ function renderQuestions(questions) {
       '</div>' +
       '<div class="q-card-footer-bar" onclick="openQuestionDetail(\'' + q.id + '\')" style="cursor:pointer;">' +
         '<span style="font-size:11px;color:var(--text2);">' + footerDate + ' · 💬 ' + (q._commentCount || 0) + '</span>' +
-        '<div style="display:flex;gap:6px;" onclick="event.stopPropagation()">' +
-          '<span onclick="shareQuestion(\'' + q.id + '\',\'' + q.text.replace(/'/g, '') + '\')" style="display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:700;padding:5px 10px;border-radius:20px;background:rgba(61,90,241,0.08);color:var(--accent);cursor:pointer;">↗ Поделиться</span>' +
-          '<span onclick="openQuestionDetail(\'' + q.id + '\')" class="discuss-btn">💬 Обсудить</span>' +
-        '</div>' +
+        '<span onclick="event.stopPropagation();openQuestionDetail(\'' + q.id + '\')" class="discuss-btn">💬 Обсудить</span>' +
       '</div>';
 
     feed.appendChild(card);
@@ -2668,9 +2673,6 @@ async function openQuestionDetail(questionId) {
       <button onclick="voteFromDetail('yes')" style="padding:12px;background:rgba(10,191,126,0.1);color:var(--green);border:1.5px solid rgba(10,191,126,0.3);border-radius:12px;font-family:'Manrope',sans-serif;font-size:14px;font-weight:800;cursor:pointer;">✓ ${q.option_yes}</button>
       <button onclick="voteFromDetail('no')" style="padding:12px;background:rgba(240,84,84,0.1);color:var(--red);border:1.5px solid rgba(240,84,84,0.3);border-radius:12px;font-family:'Manrope',sans-serif;font-size:14px;font-weight:800;cursor:pointer;">✗ ${q.option_no}</button>
     </div>` : ''}
-    <div style="display:flex;gap:8px;margin-top:14px;padding-top:14px;border-top:1px solid var(--border);">
-      <button onclick="shareQuestion('${q.id}', '${q.text.replace(/'/g, '')}')" style="flex:1;padding:11px;border-radius:14px;background:rgba(61,90,241,0.08);color:var(--accent);border:1.5px solid rgba(61,90,241,0.15);font-family:'Manrope',sans-serif;font-size:13px;font-weight:800;cursor:pointer;">↗ Поделиться</button>
-    </div>
   `;
 
   if (!isResolved && currentUser.id && db) {
@@ -2857,28 +2859,47 @@ function cancelReply() {
 }
 
 async function submitComment() {
-  if (!currentUser.id || !db) { showToast('Открой через Telegram!'); return; }
+  if (!window.Telegram?.WebApp?.initData) { showToast('Открой через Telegram!'); return; }
   const text = document.getElementById('comment-textarea').value.trim();
   if (!text) return;
+  if (text.length > 500) { showToast('⚠️ Максимум 500 символов'); return; }
 
   const btn = document.querySelector('.comment-send-btn');
   btn.disabled = true;
 
-  const { error } = await db.from('comments').insert({
-    question_id: _qdQuestionId,
-    user_id: currentUser.id,
-    parent_id: _qdReplyToId || null,
-    text
-  });
+  try {
+    const res = await fetch('https://insayt.vercel.app/api/comment', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        initData: window.Telegram.WebApp.initData,
+        question_id: _qdQuestionId,
+        text,
+        parent_id: _qdReplyToId || null
+      })
+    });
+    const data = await res.json();
 
-  btn.disabled = false;
+    if (res.status === 429) {
+      showToast('⏳ ' + (data.message || 'Лимит комментариев'));
+      btn.disabled = false;
+      return;
+    }
+    if (!data.ok) {
+      showToast('❌ ' + (data.error || 'Ошибка'));
+      btn.disabled = false;
+      return;
+    }
 
-  if (error) { showToast('❌ Ошибка: ' + error.message); return; }
-
-  document.getElementById('comment-textarea').value = '';
-  document.getElementById('comment-textarea').style.height = 'auto';
-  cancelReply();
-  await loadComments();
+    document.getElementById('comment-textarea').value = '';
+    document.getElementById('comment-textarea').style.height = 'auto';
+    cancelReply();
+    await loadComments();
+  } catch(e) {
+    showToast('❌ Ошибка сети');
+  } finally {
+    btn.disabled = false;
+  }
 }
 
 // ============ USER PROFILE (чужой профиль) ============
@@ -3039,6 +3060,7 @@ async function loadUpoAnswers() {
     const q = v.questions; if (!q) return;
     const myChoice = v.choice === 'yes' ? q.option_yes : q.option_no;
     const isResolved = q.status === 'resolved_yes' || q.status === 'resolved_no';
+    const isAwaiting = q.status === 'awaiting';
     let badgeClass = 'pending', badgeText = '⏳ Ожидает';
     if (isResolved) {
       const correct = (q.status === 'resolved_yes' && v.choice === 'yes') || (q.status === 'resolved_no' && v.choice === 'no');
@@ -3096,6 +3118,7 @@ async function loadMyAnswers() {
     const q = v.questions;
     if (!q) return;
     const isResolved = q.status === 'resolved_yes' || q.status === 'resolved_no';
+    const isAwaiting = q.status === 'awaiting';
     const myChoice = v.choice === 'yes' ? q.option_yes : q.option_no;
     let badgeClass = 'pending', badgeText = '⏳ Ожидает итога';
     if (isResolved) {
@@ -3368,17 +3391,12 @@ function filterTopic(el) {
   const allChips = document.querySelectorAll('.topic-chip');
   const activeCount = Array.from(allChips).filter(c => c.classList.contains('active')).length;
 
+  // Если кликаем на единственный активный — не даём деактивировать (хотя бы одна должна быть)
   if (el.classList.contains('active') && activeCount === 1) {
-    // Единственный активный — не даём снять, просто игнорируем клик
-    return;
-  }
-
-  el.classList.toggle('active');
-
-  // Если после toggle ни одного активного — активируем все (защита)
-  const newActiveCount = Array.from(allChips).filter(c => c.classList.contains('active')).length;
-  if (newActiveCount === 0) {
+    // Вместо этого — активируем все остальные (сброс фильтра)
     allChips.forEach(c => c.classList.add('active'));
+  } else {
+    el.classList.toggle('active');
   }
 
   applyTopicFilter();
@@ -3395,34 +3413,6 @@ function applyTopicFilter() {
     card.style.display = match ? '' : 'none';
   });
 }
-
-// ─── SHARE ───────────────────────────────────────────────────────────────────
-function shareQuestion(questionId, questionText) {
-  var tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
-  var maxLen = 100;
-  var shortText = questionText.length > maxLen ? questionText.substring(0, maxLen) + '...' : questionText;
-  var url = 'https://t.me/insayt_app_bot?start=q_' + questionId;
-  var shareText = '🔮 ' + shortText + '
-
-Проголосуй в ИНСАЙТ — кто угадает?';
-
-  if (tg && tg.openTelegramLink) {
-    tg.openTelegramLink('https://t.me/share/url?url=' + encodeURIComponent(url) + '&text=' + encodeURIComponent('🔮 ' + shortText + '
-
-Проголосуй в ИНСАЙТ — кто угадает?'));
-  } else if (navigator.share) {
-    navigator.share({ title: 'ИНСАЙТ', text: shareText, url: url }).catch(function() {});
-  } else {
-    var dummy = document.createElement('textarea');
-    dummy.value = url;
-    document.body.appendChild(dummy);
-    dummy.select();
-    try { document.execCommand('copy'); showToast('📋 Ссылка скопирована!'); }
-    catch(e) { showToast('Скопируй: ' + url); }
-    document.body.removeChild(dummy);
-  }
-}
-// ─────────────────────────────────────────────────────────────────────────────
 
 function showToast(msg) {
   const t = document.getElementById('toast');
