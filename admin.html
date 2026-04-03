@@ -317,6 +317,27 @@ function renderPendingList(questions) {
       + '<div style="flex:1;background:#E24B4A;border-radius:0 100px 100px 0;"></div>'
       + '</div>';
 
+    var resolveYesBtn = document.createElement('button');
+    resolveYesBtn.className = 'btn-yes';
+    resolveYesBtn.textContent = '✅ Сбылось';
+    resolveYesBtn.onclick = (function(id) { return function() { resolve(id, 'resolved_yes', this); }; })(q.id);
+
+    var resolveNoBtn = document.createElement('button');
+    resolveNoBtn.className = 'btn-no';
+    resolveNoBtn.textContent = '❌ Не сбылось';
+    resolveNoBtn.onclick = (function(id) { return function() { resolve(id, 'resolved_no', this); }; })(q.id);
+
+    var votersBtn = document.createElement('button');
+    votersBtn.className = 'btn-edit';
+    votersBtn.style.cssText = 'background:rgba(10,191,126,0.08);color:#0abf7e;border-color:rgba(10,191,126,0.2);';
+    votersBtn.textContent = '👥 Кто голосовал (' + total + ')';
+    votersBtn.onclick = (function(id) { return function() { openVoters(id); }; })(q.id);
+
+    var deleteBtn = document.createElement('button');
+    deleteBtn.className = 'btn-delete';
+    deleteBtn.textContent = '🗑 Удалить вопрос';
+    deleteBtn.onclick = (function(id) { return function() { deleteQuestion(id, this); }; })(q.id);
+
     card.innerHTML =
       '<div class="q-meta">'
         + '<div class="q-topic">' + q.topic + '</div>'
@@ -336,19 +357,18 @@ function renderPendingList(questions) {
         + '<span style="color:#0F6E56;">✓ ' + q.option_yes + '</span>'
         + '<span style="color:#f05454;">✗ ' + q.option_no + '</span>'
       + '</div>'
-      + '<div style="background:rgba(240,84,84,0.06);border-radius:12px;padding:12px;margin-bottom:10px;font-size:13px;color:#7b82a0;text-align:center;">'
-        + '⚠️ Выбери итог — участники получат уведомления'
-      + '</div>'
-      + '<div class="actions">'
-        + '<button class="btn-yes" onclick="resolve('' + q.id + '','resolved_yes',this)">✅ Сбылось</button>'
-        + '<button class="btn-no" onclick="resolve('' + q.id + '','resolved_no',this)">❌ Не сбылось</button>'
-      + '</div>'
-      + '<button class="btn-edit" style="background:rgba(10,191,126,0.08);color:#0abf7e;border-color:rgba(10,191,126,0.2);" onclick="openVoters('' + q.id + '')">👥 Кто голосовал (' + total + ')</button>'
-      + '<button class="btn-delete" onclick="deleteQuestion('' + q.id + '',this)">🗑 Удалить вопрос</button>';
+      + '<div style="background:rgba(240,84,84,0.06);border-radius:12px;padding:12px;margin-bottom:10px;font-size:13px;color:#7b82a0;text-align:center;">⚠️ Выбери итог — участники получат уведомления</div>'
+      + '<div class="actions"></div>';
 
+    var actions = card.querySelector('.actions');
+    actions.appendChild(resolveYesBtn);
+    actions.appendChild(resolveNoBtn);
+    card.appendChild(votersBtn);
+    card.appendChild(deleteBtn);
     container.appendChild(card);
   });
 }
+
 
 function renderList(containerId, questions, isResolved) {
   var container = document.getElementById(containerId);
