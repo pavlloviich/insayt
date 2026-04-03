@@ -662,11 +662,19 @@
   .follow-btn.unfollow { background: var(--surface2); color: var(--text2); border: 1.5px solid var(--border); }
   .follow-stats {
     display: flex; gap: 20px; justify-content: center;
-    margin: 12px 0; padding: 14px 20px;
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: 16px; margin: 0 20px 16px;
+    padding: 14px 20px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    margin: 0 20px 16px;
     box-shadow: var(--shadow);
   }
+  body.theme-dark .follow-stats {
+    background: rgba(255,255,255,0.1);
+    border-color: rgba(255,255,255,0.15);
+  }
+  body.theme-dark .follow-stat-val { color: rgba(255,255,255,0.95); }
+  body.theme-dark .follow-stat-label { color: rgba(255,255,255,0.5); }
   .follow-stat { text-align: center; cursor: pointer; }
   .follow-stat-val { font-family: 'Bebas Neue', sans-serif; font-size: 24px; color: var(--accent2); letter-spacing: 1px; }
   .follow-stat-label { font-size: 11px; color: var(--text2); text-transform: uppercase; letter-spacing: 0.5px; }
@@ -732,7 +740,7 @@
   /* QUESTION DETAIL OVERLAY */
   .q-detail-overlay {
     position: fixed; inset: 0; z-index: 400;
-    background: #f5f6fa;
+    background: var(--bg);
     display: none; flex-direction: column;
     overflow: hidden;
   }
@@ -740,7 +748,7 @@
   .q-detail-header {
     display: flex; align-items: center; gap: 12px;
     padding: 14px 20px;
-    background: rgba(245,246,250,0.97);
+    background: var(--header-bg);
     border-bottom: 1px solid var(--border);
     flex-shrink: 0;
     backdrop-filter: blur(20px);
@@ -838,7 +846,7 @@
     position: fixed;
     inset: 0;
     z-index: 500;
-    background: #f5f6fa;
+    background: var(--bg);
     display: none;
     flex-direction: column;
     overflow-y: auto;
@@ -849,7 +857,7 @@
     align-items: center;
     gap: 12px;
     padding: 16px 20px;
-    background: rgba(245,246,250,0.97);
+    background: var(--header-bg);
     border-bottom: 1px solid var(--border);
     position: sticky;
     top: 0;
@@ -1584,7 +1592,9 @@
     <div style="background:var(--surface); border:1px solid var(--border); border-radius:20px; padding:18px; box-shadow:var(--shadow);">
       <div class="section-title" style="padding:0 0 10px;">📅 Дата закрытия</div>
       <input type="date" id="q-date"
-        style="width:100%; background:var(--surface2); border:1.5px solid var(--border); border-radius:12px; padding:12px 14px; font-family:'Manrope',sans-serif; font-size:14px; font-weight:600; color:var(--text); outline:none; box-sizing:border-box;">
+        style="width:100%; background:var(--surface2); border:1.5px solid var(--border); border-radius:12px; padding:12px 14px; font-family:'Manrope',sans-serif; font-size:14px; font-weight:600; color:var(--text); outline:none; box-sizing:border-box;"
+        oninput="clampDate(this)">
+      <div style="font-size:11px; color:var(--text2); margin-top:5px;">Максимум 45 дней от сегодня</div>
     </div>
     <div style="background:var(--surface); border:1.5px dashed rgba(61,90,241,0.25); border-radius:20px; padding:18px; box-shadow:var(--shadow);">
       <div class="section-title" style="padding:0 0 12px;">👁 Предпросмотр</div>
@@ -3464,6 +3474,7 @@ function showScreen(name) {
   // Загружаем данные при переключении
   if (name === 'rating') { if (!document.querySelector('.rating-item')) loadRating(); }
   if (name === 'profile') loadProfile();
+  if (name === 'add') initDateInput();
 }
 
 function filterTopic(el) {
@@ -3491,6 +3502,29 @@ function applyTopicFilter() {
     const match = activeTexts.some(t => cardTopic.includes(t) || t.includes(cardTopic));
     card.style.display = match ? '' : 'none';
   });
+}
+
+function clampDate(input) {
+  const today = new Date();
+  const min = today.toISOString().split('T')[0];
+  const max = new Date(today.getTime() + 45 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+  input.min = min;
+  input.max = max;
+  if (input.value && input.value > max) {
+    input.value = max;
+    showToast('⚠️ Максимум 45 дней от сегодня');
+  }
+  if (input.value && input.value < min) {
+    input.value = min;
+  }
+}
+
+function initDateInput() {
+  const input = document.getElementById('q-date');
+  if (!input) return;
+  const today = new Date();
+  input.min = today.toISOString().split('T')[0];
+  input.max = new Date(today.getTime() + 45 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 }
 
 function showToast(msg) {
