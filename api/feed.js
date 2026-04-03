@@ -21,7 +21,7 @@ export default async function handler(req, res) {
     const { data, error } = await supabase
       .from("questions_with_stats")
       .select("id, author_id, text, option_yes, option_no, topic, closes_at, status, created_at, votes_yes, votes_no, total_votes")
-      .in("status", ["active", "resolved_yes", "resolved_no"])
+      .in("status", ["active", "awaiting", "resolved_yes", "resolved_no"])
       .order("created_at", { ascending: false })
       .limit(30);
 
