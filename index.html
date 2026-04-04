@@ -1564,7 +1564,7 @@
       <div class="section-title" style="padding:0 0 10px;">📝 Вопрос</div>
       <textarea id="q-text" placeholder="Например: Сборная России выйдет на ЧМ 2026?" maxlength="120"
         oninput="updatePreview(); updateCharCount(this, 'q-chars', 120)"
-        style="width:100%; background:var(--surface2); border:1.5px solid var(--border); border-radius:14px; padding:14px; font-family:'Manrope',sans-serif; font-size:15px; font-weight:600; color:var(--text); outline:none; resize:none; min-height:90px; line-height:1.5; box-sizing:border-box;"></textarea>
+        style="width:100%; background:var(--surface2); border:1.5px solid var(--border); border-radius:14px; padding:14px; font-family:Manrope,sans-serif; font-size:15px; font-weight:600; color:var(--text); outline:none; resize:none; min-height:90px; line-height:1.5; box-sizing:border-box;"></textarea>
       <div id="q-chars" style="font-size:11px; color:var(--text2); text-align:right; margin-top:6px;">0 / 120</div>
       <div id="err-text" style="font-size:12px;color:var(--red);margin-top:4px;display:none;"></div>
     </div>
@@ -1574,13 +1574,13 @@
         <div style="display:flex; align-items:center; gap:10px;">
           <div style="width:40px; height:40px; border-radius:50%; background:rgba(10,191,126,0.12); color:var(--green); display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:800; flex-shrink:0;">ДА</div>
           <input id="ans-yes" value="Да" placeholder="Вариант ДА" oninput="updatePreview()"
-            style="flex:1; background:var(--surface2); border:1.5px solid var(--border); border-radius:12px; padding:12px 14px; font-family:'Manrope',sans-serif; font-size:14px; font-weight:700; color:var(--text); outline:none;">
+            style="flex:1; background:var(--surface2); border:1.5px solid var(--border); border-radius:12px; padding:12px 14px; font-family:Manrope,sans-serif; font-size:14px; font-weight:700; color:var(--text); outline:none;">
         </div>
         <div id="err-yes" style="font-size:12px;color:var(--red);margin-top:2px;padding-left:50px;display:none;"></div>
         <div style="display:flex; align-items:center; gap:10px;">
           <div style="width:40px; height:40px; border-radius:50%; background:rgba(240,84,84,0.12); color:var(--red); display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:800; flex-shrink:0;">НЕТ</div>
           <input id="ans-no" value="Нет" placeholder="Вариант НЕТ" oninput="updatePreview()"
-            style="flex:1; background:var(--surface2); border:1.5px solid var(--border); border-radius:12px; padding:12px 14px; font-family:'Manrope',sans-serif; font-size:14px; font-weight:700; color:var(--text); outline:none;">
+            style="flex:1; background:var(--surface2); border:1.5px solid var(--border); border-radius:12px; padding:12px 14px; font-family:Manrope,sans-serif; font-size:14px; font-weight:700; color:var(--text); outline:none;">
         </div>
         <div id="err-no" style="font-size:12px;color:var(--red);margin-top:2px;padding-left:50px;display:none;"></div>
       </div>
@@ -1598,7 +1598,7 @@
     <div style="background:var(--surface); border:1px solid var(--border); border-radius:20px; padding:18px; box-shadow:var(--shadow);">
       <div class="section-title" style="padding:0 0 10px;">📅 Дата закрытия</div>
       <input type="date" id="q-date"
-        style="width:100%; background:var(--surface2); border:1.5px solid var(--border); border-radius:12px; padding:12px 14px; font-family:'Manrope',sans-serif; font-size:14px; font-weight:600; color:var(--text); outline:none; box-sizing:border-box;"
+        style="width:100%; background:var(--surface2); border:1.5px solid var(--border); border-radius:12px; padding:12px 14px; font-family:Manrope,sans-serif; font-size:14px; font-weight:600; color:var(--text); outline:none; box-sizing:border-box;"
         oninput="clampDate(this)">
       <div style="font-size:11px; color:var(--text2); margin-top:5px;">Максимум 45 дней от сегодня</div>
       <div id="err-date" style="font-size:12px;color:var(--red);margin-top:4px;display:none;"></div>
@@ -1612,7 +1612,7 @@
       </div>
     </div>
     <button id="create-submit-btn" onclick="submitQuestion()"
-      style="width:100%; padding:17px; background:linear-gradient(135deg,var(--accent),#2541b2); border:none; border-radius:16px; color:white; font-family:'Manrope',sans-serif; font-size:16px; font-weight:800; cursor:pointer; box-shadow:0 8px 24px rgba(61,90,241,0.3); opacity:0.4; transition:all 0.2s;" disabled>
+      style="width:100%; padding:17px; background:linear-gradient(135deg,var(--accent),#2541b2); border:none; border-radius:16px; color:white; font-family:Manrope,sans-serif; font-size:16px; font-weight:800; cursor:pointer; box-shadow:0 8px 24px rgba(61,90,241,0.3); opacity:0.4; transition:all 0.2s;" disabled>
       Опубликовать вопрос →
     </button>
 
@@ -1772,7 +1772,7 @@
 </div>
 
 <script>
-const APP_VERSION = '1.4.0';
+const APP_VERSION = '1.5.0';
 
 // TELEGRAM WEBAPP INIT
 const tg = window.Telegram?.WebApp;
@@ -1906,7 +1906,7 @@ function renderMyQuestions(questions) {
         <div style="font-size:40px; margin-bottom:12px;">🔮</div>
         <div style="font-size:15px; font-weight:700; color:var(--text); margin-bottom:6px;">Задай первый вопрос</div>
         <div style="font-size:13px; color:var(--text2); margin-bottom:20px; line-height:1.5;">Создай вопрос — другие проголосуют,<br>а ты узнаешь кто оказался прав</div>
-        <button onclick="showScreen('add')" style="padding:13px 28px; background:linear-gradient(135deg,var(--accent),#2541b2); border:none; border-radius:14px; color:white; font-family:'Manrope',sans-serif; font-size:14px; font-weight:800; cursor:pointer; box-shadow:0 6px 20px rgba(61,90,241,0.3);">
+        <button onclick="showScreen('add')" style="padding:13px 28px; background:linear-gradient(135deg,var(--accent),#2541b2); border:none; border-radius:14px; color:white; font-family:Manrope,sans-serif; font-size:14px; font-weight:800; cursor:pointer; box-shadow:0 6px 20px rgba(61,90,241,0.3);">
           ➕ Создать вопрос
         </button>
       </div>`;
@@ -1968,123 +1968,161 @@ async function loadUserRank() {
 }
 
 // Загружаем вопросы из базы
-async function loadQuestions() {
-  const feed = document.getElementById('feed-list') || document.querySelector('.feed');
+// ─── FEED STATE ──────────────────────────────────────────────────────────────
+var _feed = [];
+var _isLoadingFeed = false;
+var _feedError = null;
+var _isVoting = {};
+// ─────────────────────────────────────────────────────────────────────────────
+
+function showFeedLoading() {
+  var feed = document.getElementById('feed-list') || document.querySelector('.feed');
   if (!feed) return;
+  var skeletons = '';
+  for (var i = 0; i < 3; i++) {
+    skeletons += '<div class="skeleton-card">'
+      + '<div class="skeleton skeleton-line" style="width:40%;margin-bottom:12px;"></div>'
+      + '<div class="skeleton skeleton-title"></div>'
+      + '<div class="skeleton skeleton-bar"></div>'
+      + '<div class="skeleton skeleton-btn"></div>'
+      + '</div>';
+  }
+  feed.innerHTML = skeletons;
+}
 
-  const CACHE_KEY = 'insayt_questions_cache';
-  const CACHE_TTL = 60000;
+function showFeedError() {
+  var feed = document.getElementById('feed-list') || document.querySelector('.feed');
+  if (!feed) return;
+  feed.innerHTML = '<div style="text-align:center;padding:40px 20px;">'
+    + '<div style="font-size:36px;margin-bottom:12px;">😕</div>'
+    + '<div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:6px;">Не удалось загрузить ленту</div>'
+    + '<div style="font-size:13px;color:var(--text2);margin-bottom:20px;">Проверь соединение и попробуй снова</div>'
+    + '<button onclick="loadQuestions()" style="padding:12px 28px;background:linear-gradient(135deg,var(--accent),#2541b2);border:none;border-radius:14px;color:white;font-family:Manrope,sans-serif;font-size:14px;font-weight:800;cursor:pointer;">🔄 Повторить</button>'
+    + '</div>';
+}
 
+function showFeedEmpty() {
+  var feed = document.getElementById('feed-list') || document.querySelector('.feed');
+  if (!feed) return;
+  feed.innerHTML = '<div style="text-align:center;padding:40px 20px;">'
+    + '<div style="font-size:40px;margin-bottom:12px;">🔮</div>'
+    + '<div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:6px;">Пока нет вопросов</div>'
+    + '<div style="font-size:13px;color:var(--text2);margin-bottom:20px;">Стань первым — задай вопрос!</div>'
+    + '<button onclick="showScreen(\"add\")" style="padding:12px 28px;background:linear-gradient(135deg,var(--accent),#2541b2);border:none;border-radius:14px;color:white;font-family:Manrope,sans-serif;font-size:14px;font-weight:800;cursor:pointer;">➕ Создать вопрос</button>'
+    + '</div>';
+}
+
+async function loadQuestions() {
+  if (_isLoadingFeed) return;
+  _isLoadingFeed = true;
+  _feedError = null;
+
+  var feed = document.getElementById('feed-list') || document.querySelector('.feed');
+  if (!feed) { _isLoadingFeed = false; return; }
+
+  // Показываем скелетон только если нет карточек
+  if (!feed.querySelector('.q-card')) showFeedLoading();
+
+  // Пробуем кэш для быстрого старта
   try {
-    const cached = localStorage.getItem(CACHE_KEY);
+    var cached = localStorage.getItem('insayt_questions_cache');
     if (cached) {
-      const { data: cachedData, ts } = JSON.parse(cached);
-      if (Date.now() - ts < CACHE_TTL && cachedData?.length > 0) {
-        const sortedCached = rankQuestions(cachedData);
+      var parsed = JSON.parse(cached);
+      if (Date.now() - parsed.ts < 60000 && parsed.data && parsed.data.length > 0) {
+        var sortedCached = rankQuestions(parsed.data);
         renderQuestions(sortedCached);
         applyUserTopicsFilter();
+        loadVotesAndComments(parsed.data);
       }
     }
-  } catch (e) {}
+  } catch(e) {}
 
   try {
-    const res = await fetch('https://insayt.vercel.app/api/feed', { cache: 'no-store' });
-    const payload = await res.json();
+    // Таймаут 8 сек + retry
+    var fetchFeed = async function() {
+      var ctrl = new AbortController();
+      var timer = setTimeout(function() { ctrl.abort(); }, 8000);
+      try {
+        var r = await fetch('https://insayt.vercel.app/api/feed', { cache: 'no-store', signal: ctrl.signal });
+        clearTimeout(timer);
+        return r;
+      } catch(err) { clearTimeout(timer); throw err; }
+    };
+
+    var res;
+    try { res = await fetchFeed(); }
+    catch(e) { res = await fetchFeed(); } // один retry
+
+    var payload = await res.json();
 
     if (!res.ok || !payload.ok || !Array.isArray(payload.questions)) {
-      console.error('loadQuestions feed error:', payload);
-      if (!feed.querySelector('.q-card')) {
-        feed.innerHTML = '<div style="text-align:center;padding:30px;color:var(--text2);">Не удалось загрузить ленту</div>';
-      }
+      _feedError = payload.error || 'unknown';
+      if (!feed.querySelector('.q-card')) showFeedError();
       return;
     }
 
-    const data = payload.questions;
-    try { localStorage.setItem(CACHE_KEY, JSON.stringify({ data, ts: Date.now() })); } catch (e) {}
+    var data = payload.questions;
 
-    const sorted = rankQuestions(data);
+    // Дедупликация
+    var seen = new Set();
+    data = data.filter(function(q) {
+      if (seen.has(q.id)) return false;
+      seen.add(q.id); return true;
+    });
+
+    _feed = data;
+    try { localStorage.setItem('insayt_questions_cache', JSON.stringify({ data: data, ts: Date.now() })); } catch(e) {}
+
+    if (data.length === 0) { showFeedEmpty(); return; }
+
+    var sorted = rankQuestions(data);
     renderQuestions(sorted);
     applyUserTopicsFilter();
+    loadVotesAndComments(data);
 
-    const hotQ = data.find(q => q.status === 'active') || data[0];
+    // Обновляем горячий вопрос для онбординга
+    var hotQ = data.find(function(q) { return q.status === 'active'; }) || data[0];
     if (hotQ) {
       _obHotQuestionId = hotQ.id;
-      const total = (hotQ.votes_yes || 0) + (hotQ.votes_no || 0);
-      const pctYes = total > 0 ? Math.round((hotQ.votes_yes || 0) / total * 100) : 50;
-      const pctNo = 100 - pctYes;
-      const obText = document.getElementById('ob-q-text');
-      const obVotes = document.getElementById('ob-q-votes');
-      const obPctYes = document.getElementById('ob-pct-yes');
-      const obPctNo = document.getElementById('ob-pct-no');
-      const obBarYes = document.getElementById('ob-bar-yes');
+      var tot = (hotQ.votes_yes || 0) + (hotQ.votes_no || 0);
+      var pY = tot > 0 ? Math.round((hotQ.votes_yes || 0) / tot * 100) : 50;
+      var obText = document.getElementById('ob-q-text');
+      var obVotes = document.getElementById('ob-q-votes');
+      var obPctYes = document.getElementById('ob-pct-yes');
+      var obPctNo = document.getElementById('ob-pct-no');
+      var obBarYes = document.getElementById('ob-bar-yes');
       if (obText) obText.textContent = hotQ.text;
-      if (obVotes) obVotes.textContent = total.toLocaleString('ru') + ' голосов';
-      if (obPctYes) obPctYes.textContent = pctYes + '%';
-      if (obPctNo) obPctNo.textContent = pctNo + '%';
-      if (obBarYes) obBarYes.style.width = pctYes + '%';
+      if (obVotes) obVotes.textContent = tot.toLocaleString('ru') + ' голосов';
+      if (obPctYes) obPctYes.textContent = pY + '%';
+      if (obPctNo) obPctNo.textContent = (100-pY) + '%';
+      if (obBarYes) obBarYes.style.width = pY + '%';
     }
 
-    if (currentUser.id && db) {
-      const { data: myVotes } = await db
-        .from('votes')
-        .select('question_id, choice')
-        .eq('user_id', currentUser.id);
-
-      if (myVotes && myVotes.length > 0) {
-        myVotes.forEach(v => {
-          const card = document.getElementById('q-' + v.question_id);
-          if (card && !card.classList.contains('voted')) {
-            card.classList.add('voted');
-            const resultEl = card.querySelector('.voted-result');
-            if (resultEl) {
-              const optYes = card.querySelector('.btn-yes')?.textContent?.replace('✓ ','') || 'ДА';
-              const optNo = card.querySelector('.btn-no')?.textContent?.replace('✗ ','') || 'НЕТ';
-              const choiceLabel = v.choice === 'yes' ? optYes : optNo;
-              const barFill = card.querySelector('[data-bar="yes"]');
-              const pctYes = barFill ? parseFloat(barFill.style.width) : 50;
-              const myPct = v.choice === 'yes' ? pctYes : 100 - pctYes;
-              if (myPct < 35) {
-                resultEl.textContent = `⚡ Твой прогноз: ${choiceLabel} — Ты против толпы!`;
-                resultEl.className = 'voted-result underdog';
-              } else {
-                resultEl.textContent = `⏳ Твой прогноз: ${choiceLabel}`;
-                resultEl.className = 'voted-result pending';
-              }
-            }
-          }
-        });
-      }
-    }
-  } catch (e) {
-    console.error('loadQuestions exception:', e);
-    if (!feed.querySelector('.q-card')) {
-      feed.innerHTML = '<div style="text-align:center;padding:30px;color:var(--text2);">Ошибка загрузки ленты</div>';
-    }
+  } catch(e) {
+    console.error('loadQuestions error:', e);
+    _feedError = e.message;
+    if (!feed.querySelector('.q-card')) showFeedError();
+  } finally {
+    _isLoadingFeed = false;
   }
 }
 
-// Алгоритм ранжирования: топ вовлечённости + новые чередуются
 function rankQuestions(questions) {
-  const now = Date.now();
-  // Считаем скор вовлечённости (голоса + свежесть)
-  const withScore = questions.map(q => {
-    const total = q.votes_yes + q.votes_no;
-    const ageHours = (now - new Date(q.created_at).getTime()) / 3600000;
-    // Вовлечённость: голоса с небольшим затуханием по времени
-    const engagement = total / Math.pow(ageHours + 2, 0.5);
-    const isNew = ageHours < 24;
-    return { ...q, _score: engagement, _isNew: isNew, _age: ageHours };
+  var now = Date.now();
+  var withScore = questions.map(function(q) {
+    var total = (q.votes_yes || 0) + (q.votes_no || 0);
+    var ageHours = (now - new Date(q.created_at).getTime()) / 3600000;
+    var engagement = total / Math.pow(ageHours + 2, 0.5);
+    var isNew = ageHours < 24 && q.status === 'active';
+    return Object.assign({}, q, { _score: engagement, _isNew: isNew, _age: ageHours });
   });
 
-  // Сортируем по вовлечённости
-  const byEngagement = [...withScore].sort((a, b) => b._score - a._score);
-  // Новые (до 24ч), сортированные по дате
-  const newOnes = withScore.filter(q => q._isNew).sort((a, b) => a._age - b._age);
-  const notNew = byEngagement.filter(q => !q._isNew);
+  var byEngagement = withScore.slice().sort(function(a,b) { return b._score - a._score; });
+  var newOnes = withScore.filter(function(q) { return q._isNew; }).sort(function(a,b) { return a._age - b._age; });
+  var notNew = byEngagement.filter(function(q) { return !q._isNew; });
 
-  // Чередуем: топ-вовлечённость, новый, второй по вовлечённости, новый...
-  const result = [];
-  let ei = 0, ni = 0;
+  var result = [];
+  var ei = 0, ni = 0;
   while (ei < notNew.length || ni < newOnes.length) {
     if (ei < notNew.length) result.push(notNew[ei++]);
     if (ni < newOnes.length) result.push(newOnes[ni++]);
@@ -2092,14 +2130,14 @@ function rankQuestions(questions) {
     if (ni < newOnes.length) result.push(newOnes[ni++]);
   }
 
-  // Убираем дубли (если вопрос попал в оба массива)
-  const seen = new Set();
-  return result.filter(q => {
+  var seen = new Set();
+  return result.filter(function(q) {
     if (seen.has(q.id)) return false;
-    seen.add(q.id);
-    return true;
+    seen.add(q.id); return true;
   });
 }
+
+
 
 // Асинхронная загрузка голосов и комментариев после рендера
 async function loadVotesAndComments(data) {
@@ -2319,17 +2357,44 @@ function renderQuestions(questions) {
 // Голосуем за вопрос через защищённый backend
 async function voteQuestion(questionId, choice, btn) {
   if (!window.Telegram || !window.Telegram.WebApp || !window.Telegram.WebApp.initData) {
-    showToast('Открой через Telegram!');
-    return;
+    showToast('Открой через Telegram!'); return;
   }
 
-  const card = document.getElementById('q-' + questionId);
+  var card = document.getElementById('q-' + questionId);
   if (!card || card.classList.contains('voted')) return;
 
-  btn.disabled = true;
+  // Защита от двойного голосования
+  if (_isVoting[questionId]) return;
+  _isVoting[questionId] = true;
+
+  // Блокируем обе кнопки
+  var btnYes = card.querySelector('.btn-yes');
+  var btnNo = card.querySelector('.btn-no');
+  if (btnYes) { btnYes.disabled = true; btnYes.style.opacity = '0.6'; }
+  if (btnNo) { btnNo.disabled = true; btnNo.style.opacity = '0.6'; }
+
+  // Оптимистичный UI — сразу обновляем счётчики
+  var bigYes = card.querySelector('[data-pct="yes"]');
+  var bigNo = card.querySelector('[data-pct="no"]');
+  var barEl = card.querySelector('[data-bar="yes"]');
+  var prevYesText = bigYes ? bigYes.textContent : null;
+  var prevNoText = bigNo ? bigNo.textContent : null;
+  var prevBarWidth = barEl ? barEl.style.width : null;
+
+  var prevYesPct = prevYesText ? parseInt(prevYesText) : 50;
+  var fakeTotalBase = 10; // предполагаемая база для расчёта
+  var fakeTotal = fakeTotalBase + 1;
+  var fakeYesPct = choice === 'yes'
+    ? Math.round((prevYesPct / 100 * fakeTotalBase + 1) / fakeTotal * 100)
+    : Math.round((prevYesPct / 100 * fakeTotalBase) / fakeTotal * 100);
+  var fakeNoPct = 100 - fakeYesPct;
+
+  if (bigYes) bigYes.textContent = fakeYesPct + '%';
+  if (bigNo) bigNo.textContent = fakeNoPct + '%';
+  if (barEl) barEl.style.width = fakeYesPct + '%';
 
   try {
-    const res = await fetch('https://insayt.vercel.app/api/vote', {
+    var res = await fetch('https://insayt.vercel.app/api/vote', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -2339,71 +2404,81 @@ async function voteQuestion(questionId, choice, btn) {
       })
     });
 
-    const data = await res.json();
+    var data = await res.json();
 
     if (res.status === 429 || data.error === 'rate_limited') {
       showToast('⏳ Подожди секунду...');
-      btn.disabled = false; return;
+      // Откат оптимистичного UI
+      if (bigYes && prevYesText) bigYes.textContent = prevYesText;
+      if (bigNo && prevNoText) bigNo.textContent = prevNoText;
+      if (barEl && prevBarWidth) barEl.style.width = prevBarWidth;
+      if (btnYes) { btnYes.disabled = false; btnYes.style.opacity = '1'; }
+      if (btnNo) { btnNo.disabled = false; btnNo.style.opacity = '1'; }
+      return;
     }
+
     if (!res.ok || !data.ok) {
       if (data.error === 'invalid_auth') showToast('Открой через Telegram!');
-      else showToast('Ошибка: ' + (data.error || 'Не удалось проголосовать'));
-      btn.disabled = false; return;
+      else showToast('❌ Ошибка голосования');
+      // Откат
+      if (bigYes && prevYesText) bigYes.textContent = prevYesText;
+      if (bigNo && prevNoText) bigNo.textContent = prevNoText;
+      if (barEl && prevBarWidth) barEl.style.width = prevBarWidth;
+      if (btnYes) { btnYes.disabled = false; btnYes.style.opacity = '1'; }
+      if (btnNo) { btnNo.disabled = false; btnNo.style.opacity = '1'; }
+      return;
     }
 
     if (data.duplicate) {
       showToast('Ты уже голосовал!');
       card.classList.add('voted');
-      btn.disabled = false;
       return;
     }
 
-    const fresh = data.question_after || null;
+    // Применяем реальные данные с сервера
+    var fresh = data.question_after || null;
     card.classList.add('voted');
 
     if (fresh) {
-      const total = fresh.votes_yes + fresh.votes_no;
-      const pctYes = total > 0 ? Math.round(fresh.votes_yes / total * 100) : 50;
-      const pctNo = 100 - pctYes;
-      const myPct = choice === 'yes' ? pctYes : pctNo;
+      var total = (fresh.votes_yes || 0) + (fresh.votes_no || 0);
+      var pctYes = total > 0 ? Math.round((fresh.votes_yes || 0) / total * 100) : 50;
+      var pctNo = 100 - pctYes;
+      var myPct = choice === 'yes' ? pctYes : pctNo;
 
-      const bigYes = card.querySelector('[data-pct="yes"]');
-      const bigNo = card.querySelector('[data-pct="no"]');
       if (bigYes) bigYes.textContent = pctYes + '%';
       if (bigNo) bigNo.textContent = pctNo + '%';
-
-      const barEl = card.querySelector('[data-bar="yes"]');
       if (barEl) barEl.style.width = pctYes + '%';
 
-      const votesEl = card.querySelector('[data-votes]');
+      var votesEl = card.querySelector('[data-votes]');
       if (votesEl) votesEl.innerHTML = '<span class="live-dot"></span><span style="font-size:12px;color:var(--text2);">' + total + ' голосов</span>';
 
-      const choiceLabel = choice === 'yes' ? (fresh.option_yes || 'Да') : (fresh.option_no || 'Нет');
-      let label, cssClass;
-      if (myPct < 35) {
-        label = '⚡ Твой прогноз: ' + choiceLabel + ' — Ты против толпы!';
-        cssClass = 'voted-result underdog';
-      } else {
-        label = '⏳ Твой прогноз: ' + choiceLabel;
-        cssClass = 'voted-result pending';
-      }
+      var choiceLabel = choice === 'yes' ? (fresh.option_yes || 'Да') : (fresh.option_no || 'Нет');
+      var label = myPct < 35
+        ? '⚡ Твой прогноз: ' + choiceLabel + ' — Ты против толпы!'
+        : '⏳ Твой прогноз: ' + choiceLabel;
+      var cssClass = myPct < 35 ? 'voted-result underdog' : 'voted-result pending';
 
-      const resultEl = card.querySelector('.voted-result');
-      if (resultEl) {
-        resultEl.textContent = label;
-        resultEl.className = cssClass;
-      }
+      var resultEl = card.querySelector('.voted-result');
+      if (resultEl) { resultEl.textContent = label; resultEl.className = cssClass; }
     }
 
-    showToast('✅ Прогноз принят! +20 очков');
-    await loadQuestions();
-  } catch (e) {
+    showToast('✅ Прогноз принят!');
+
+  } catch(e) {
     console.error('voteQuestion error:', e);
-    showToast('Ошибка сети');
+    showToast('❌ Ошибка сети');
+    // Откат
+    if (bigYes && prevYesText) bigYes.textContent = prevYesText;
+    if (bigNo && prevNoText) bigNo.textContent = prevNoText;
+    if (barEl && prevBarWidth) barEl.style.width = prevBarWidth;
+    if (btnYes) { btnYes.disabled = false; btnYes.style.opacity = '1'; }
+    if (btnNo) { btnNo.disabled = false; btnNo.style.opacity = '1'; }
   } finally {
-    btn.disabled = false;
+    _isVoting[questionId] = false;
   }
 }
+
+
 
 // Загружаем рейтинг
 // Текущая активная вкладка рейтинга
@@ -2799,8 +2874,8 @@ async function openQuestionDetail(questionId) {
     </div>
     ${!isResolved ? `
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;" id="qd-vote-btns">
-      <button onclick="voteFromDetail('yes')" style="padding:12px;background:rgba(10,191,126,0.1);color:var(--green);border:1.5px solid rgba(10,191,126,0.3);border-radius:12px;font-family:'Manrope',sans-serif;font-size:14px;font-weight:800;cursor:pointer;">✓ ${q.option_yes}</button>
-      <button onclick="voteFromDetail('no')" style="padding:12px;background:rgba(240,84,84,0.1);color:var(--red);border:1.5px solid rgba(240,84,84,0.3);border-radius:12px;font-family:'Manrope',sans-serif;font-size:14px;font-weight:800;cursor:pointer;">✗ ${q.option_no}</button>
+      <button onclick="voteFromDetail('yes')" style="padding:12px;background:rgba(10,191,126,0.1);color:var(--green);border:1.5px solid rgba(10,191,126,0.3);border-radius:12px;font-family:Manrope,sans-serif;font-size:14px;font-weight:800;cursor:pointer;">✓ ${q.option_yes}</button>
+      <button onclick="voteFromDetail('no')" style="padding:12px;background:rgba(240,84,84,0.1);color:var(--red);border:1.5px solid rgba(240,84,84,0.3);border-radius:12px;font-family:Manrope,sans-serif;font-size:14px;font-weight:800;cursor:pointer;">✗ ${q.option_no}</button>
     </div>` : ''}
   `;
 
