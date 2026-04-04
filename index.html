@@ -1777,7 +1777,7 @@
 </div>
 
 <script>
-const APP_VERSION = '1.7.0';
+const APP_VERSION = '1.8.0';
 
 // TELEGRAM WEBAPP INIT
 const tg = window.Telegram?.WebApp;
@@ -2374,8 +2374,8 @@ function updateFeedCardVoteUI(questionId, fresh, userChoice) {
   var total    = votesYes + votesNo;
   var pctYes   = total > 0 ? Math.round(votesYes / total * 100) : 50;
   var pctNo    = 100 - pctYes;
-  var myPct    = userChoice === 'yes' ? pctYes : pctNo;
 
+  // Обновляем проценты и бар всегда
   var bigYes = card.querySelector('[data-pct="yes"]');
   var bigNo  = card.querySelector('[data-pct="no"]');
   if (bigYes) bigYes.textContent = pctYes + '%';
@@ -2385,22 +2385,27 @@ function updateFeedCardVoteUI(questionId, fresh, userChoice) {
   if (barEl) barEl.style.width = pctYes + '%';
 
   var votesEl = card.querySelector('[data-votes]');
-  if (votesEl) votesEl.innerHTML = '<span class="live-dot"></span><span style="font-size:12px;color:var(--text2);">' + total + ' \u0433\u043e\u043b\u043e\u0441\u043e\u0432</span>';
+  if (votesEl) votesEl.innerHTML = '<span class="live-dot"></span><span style="font-size:12px;color:var(--text2);">' + total + ' голосов</span>';
 
-  var choiceLabel = userChoice === 'yes' ? (fresh.option_yes || '\u0414\u0430') : (fresh.option_no || '\u041d\u0435\u0442');
-  var label, cssClass;
-  if (myPct < 35) {
-    label    = '\u26a1 \u0422\u0432\u043e\u0439 \u043f\u0440\u043e\u0433\u043d\u043e\u0437: ' + choiceLabel + ' \u2014 \u0422\u044b \u043f\u0440\u043e\u0442\u0438\u0432 \u0442\u043e\u043b\u043f\u044b!';
-    cssClass = 'voted-result underdog';
-  } else {
-    label    = '\u23f3 \u0422\u0432\u043e\u0439 \u043f\u0440\u043e\u0433\u043d\u043e\u0437: ' + choiceLabel;
-    cssClass = 'voted-result pending';
+  // voted-result — только если userChoice известен
+  if (userChoice !== null && userChoice !== undefined) {
+    var myPct = userChoice === 'yes' ? pctYes : pctNo;
+    var choiceLabel = userChoice === 'yes' ? (fresh.option_yes || 'Да') : (fresh.option_no || 'Нет');
+    var label, cssClass;
+    if (myPct < 35) {
+      label    = '⚡ Твой прогноз: ' + choiceLabel + ' — Ты против толпы!';
+      cssClass = 'voted-result underdog';
+    } else {
+      label    = '⏳ Твой прогноз: ' + choiceLabel;
+      cssClass = 'voted-result pending';
+    }
+    var resultEl = card.querySelector('.voted-result');
+    if (resultEl) { resultEl.textContent = label; resultEl.className = cssClass; }
   }
-  var resultEl = card.querySelector('.voted-result');
-  if (resultEl) { resultEl.textContent = label; resultEl.className = cssClass; }
 
   card.classList.add('voted');
 }
+
 
 // Обновляет детальный экран после голосования
 function updateDetailVoteUI(fresh, userChoice) {
@@ -2412,46 +2417,154 @@ function updateDetailVoteUI(fresh, userChoice) {
   var total    = votesYes + votesNo;
   var pctYes   = total > 0 ? Math.round(votesYes / total * 100) : 50;
   var pctNo    = 100 - pctYes;
-  var myPct    = userChoice === 'yes' ? pctYes : pctNo;
-  var choiceLabel = userChoice === 'yes' ? (fresh.option_yes || '\u0414\u0430') : (fresh.option_no || '\u041d\u0435\u0442');
 
-  // Обновляем счётчик в шапке детального экрана
   var qdVotes = document.getElementById('qd-votes-count');
-  if (qdVotes) qdVotes.textContent = '\U0001f465 ' + total;
+  if (qdVotes) qdVotes.textContent = '👥 ' + total;
 
-  // Перерисовываем блок qd-card с реальными данными
   var qdCard = document.getElementById('qd-card');
   if (!qdCard) return;
 
-  var barHtml = '<div style="height:6px;background:var(--surface2);border-radius:6px;margin-bottom:8px;overflow:hidden;">'
-    + '<div style="height:100%;width:' + pctYes + '%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:6px;"></div>'
-    + '</div>';
-
-  var label, cssClass;
-  if (myPct < 35) {
-    label    = '\u26a1 \u0422\u0432\u043e\u0439 \u043f\u0440\u043e\u0433\u043d\u043e\u0437: ' + choiceLabel + ' \u2014 \u0422\u044b \u043f\u0440\u043e\u0442\u0438\u0432 \u0442\u043e\u043b\u043f\u044b!';
-    cssClass = 'voted-result underdog';
-  } else {
-    label    = '\u23f3 \u0422\u0432\u043e\u0439 \u043f\u0440\u043e\u0433\u043d\u043e\u0437: ' + choiceLabel;
-    cssClass = 'voted-result pending';
+  // Строим voted-result блок только если userChoice известен
+  var resultHtml = '';
+  if (userChoice !== null && userChoice !== undefined) {
+    var myPct = userChoice === 'yes' ? pctYes : pctNo;
+    var choiceLabel = userChoice === 'yes' ? (fresh.option_yes || 'Да') : (fresh.option_no || 'Нет');
+    var label = myPct < 35
+      ? '⚡ Твой прогноз: ' + choiceLabel + ' — Ты против толпы!'
+      : '⏳ Твой прогноз: ' + choiceLabel;
+    resultHtml = '<div style="text-align:center;padding:12px 16px;border-radius:12px;background:rgba(61,90,241,0.07);font-size:13px;font-weight:700;color:var(--accent2);margin-top:12px;">' + label + '</div>';
   }
 
-  // Сохраняем текст вопроса, обновляем бар и проценты, убираем кнопки
   qdCard.innerHTML =
     '<div style="font-size:18px;font-weight:800;line-height:1.4;margin-bottom:16px;">' + fresh.text + '</div>'
     + '<div style="height:6px;background:var(--surface2);border-radius:6px;margin-bottom:8px;overflow:hidden;">'
       + '<div style="height:100%;width:' + pctYes + '%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:6px;"></div>'
     + '</div>'
     + '<div style="display:flex;justify-content:space-between;margin-bottom:14px;font-size:12px;font-weight:700;">'
-      + '<span style="color:var(--green);">\u2713 ' + fresh.option_yes + ' \u2014 ' + pctYes + '%</span>'
-      + '<span style="color:var(--red);">\u2717 ' + fresh.option_no + ' \u2014 ' + pctNo + '%</span>'
+      + '<span style="color:var(--green);">✓ ' + fresh.option_yes + ' — ' + pctYes + '%</span>'
+      + '<span style="color:var(--red);">✗ ' + fresh.option_no + ' — ' + pctNo + '%</span>'
     + '</div>'
-    + '<div style="text-align:center;padding:12px 16px;border-radius:12px;background:rgba(61,90,241,0.07);font-size:13px;font-weight:700;color:var(--accent2);">'
-      + label
-    + '</div>';
+    + resultHtml;
 }
 
+
 // ─────────────────────────────────────────────────────────────────────────────
+
+function openQuestionDetail(questionId) {
+  _qdQuestionId = questionId;
+  _qdReplyToId = null;
+
+  var overlay = document.getElementById('q-detail-overlay');
+  if (overlay) overlay.classList.add('open');
+
+  var qdCard = document.getElementById('qd-card');
+  if (qdCard) qdCard.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text2);">Загрузка...</div>';
+
+  var commList = document.getElementById('qd-comments-list');
+  if (commList) commList.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text2);">Загрузка...</div>';
+
+  var textarea = document.getElementById('comment-textarea');
+  if (textarea) textarea.value = '';
+  cancelReply();
+
+  // Ищем вопрос сначала в _feed (уже загружено), потом в api/questions
+  var q = null;
+  if (typeof _feed !== 'undefined' && _feed.length > 0) {
+    q = _feed.find(function(item) { return item.id === questionId; }) || null;
+  }
+
+  if (q) {
+    _renderQuestionDetail(q);
+    loadComments();
+  } else {
+    fetch('https://insayt.vercel.app/api/questions?id=' + questionId)
+      .then(function(r) { return r.json(); })
+      .then(function(payload) {
+        if (payload.ok && payload.questions && payload.questions.length > 0) {
+          _renderQuestionDetail(payload.questions[0]);
+        } else {
+          if (qdCard) qdCard.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text2);">Не удалось загрузить</div>';
+        }
+        loadComments();
+      })
+      .catch(function(e) {
+        console.error('openQuestionDetail error:', e);
+        if (qdCard) qdCard.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text2);">Ошибка загрузки</div>';
+        loadComments();
+      });
+  }
+}
+
+function _renderQuestionDetail(q) {
+  _qdQuestion = q;
+
+  var total = (q.votes_yes || 0) + (q.votes_no || 0);
+  var pctYes = total > 0 ? Math.round((q.votes_yes || 0) / total * 100) : 50;
+  var pctNo = 100 - pctYes;
+  var isResolved = q.status === 'resolved_yes' || q.status === 'resolved_no';
+  var resolvedYes = q.status === 'resolved_yes';
+
+  var qdTopic = document.getElementById('qd-topic');
+  var qdVotes = document.getElementById('qd-votes-count');
+  if (qdTopic) qdTopic.textContent = q.topic;
+  if (qdVotes) qdVotes.textContent = '👥 ' + total;
+
+  var resolvedBlock = '';
+  if (isResolved) {
+    var bg = resolvedYes ? 'rgba(10,191,126,0.1)' : 'rgba(240,84,84,0.1)';
+    var border = resolvedYes ? 'rgba(10,191,126,0.3)' : 'rgba(240,84,84,0.3)';
+    var icon = resolvedYes ? '✅' : '❌';
+    var title = resolvedYes ? 'Собылось!' : 'Не собылось';
+    var answer = resolvedYes ? q.option_yes : q.option_no;
+    resolvedBlock = '<div style="padding:12px 14px;border-radius:12px;background:' + bg + ';border:1.5px solid ' + border + ';display:flex;align-items:center;gap:10px;margin-bottom:14px;">'
+      + '<div style="font-size:20px;">' + icon + '</div>'
+      + '<div><div style="font-size:13px;font-weight:800;">' + title + '</div>'
+      + '<div style="font-size:11px;color:var(--text2);margin-top:2px;">Правильный ответ: ' + answer + '</div></div>'
+      + '</div>';
+  }
+
+  var voteBtnsHtml = '';
+  if (!isResolved) {
+    voteBtnsHtml = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;" id="qd-vote-btns">'
+      + '<button onclick="voteFromDetail(&quot;yes&quot;)" style="padding:12px;background:rgba(10,191,126,0.1);color:var(--green);border:1.5px solid rgba(10,191,126,0.3);border-radius:12px;font-family:Manrope,sans-serif;font-size:14px;font-weight:800;cursor:pointer;">✓ ' + q.option_yes + '</button>'
+      + '<button onclick="voteFromDetail(&quot;no&quot;)" style="padding:12px;background:rgba(240,84,84,0.1);color:var(--red);border:1.5px solid rgba(240,84,84,0.3);border-radius:12px;font-family:Manrope,sans-serif;font-size:14px;font-weight:800;cursor:pointer;">✗ ' + q.option_no + '</button>'
+      + '</div>';
+  }
+
+  var qdCard = document.getElementById('qd-card');
+  if (qdCard) {
+    qdCard.innerHTML =
+      '<div style="font-size:18px;font-weight:800;line-height:1.4;margin-bottom:16px;">' + q.text + '</div>'
+      + resolvedBlock
+      + '<div style="height:6px;background:var(--surface2);border-radius:6px;margin-bottom:8px;overflow:hidden;">'
+        + '<div style="height:100%;width:' + pctYes + '%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:6px;"></div>'
+      + '</div>'
+      + '<div style="display:flex;justify-content:space-between;margin-bottom:' + (isResolved ? '0' : '14px') + ';font-size:12px;font-weight:700;">'
+        + '<span style="color:var(--green);">✓ ' + q.option_yes + ' — ' + pctYes + '%</span>'
+        + '<span style="color:var(--red);">✗ ' + q.option_no + ' — ' + pctNo + '%</span>'
+      + '</div>'
+      + voteBtnsHtml;
+  }
+
+  // Проверяем голосовал ли текущий пользователь
+  if (!isResolved && currentUser.id && db) {
+    db.from('votes').select('choice').eq('user_id', currentUser.id).eq('question_id', q.id).maybeSingle()
+      .then(function(result) {
+        if (result.data) {
+          var btns = document.getElementById('qd-vote-btns');
+          var myChoice = result.data.choice;
+          var myPct = myChoice === 'yes' ? pctYes : pctNo;
+          var choiceLabel = myChoice === 'yes' ? q.option_yes : q.option_no;
+          var label = myPct < 35
+            ? '⚡ Твой прогноз: ' + choiceLabel + ' — Ты против толпы!'
+            : '⏳ Твой прогноз: ' + choiceLabel;
+          if (btns) btns.innerHTML = '<div style="text-align:center;padding:10px;color:var(--accent2);font-weight:700;font-size:13px;grid-column:1/-1;">' + label + '</div>';
+        }
+      })
+      .catch(function(e) { console.error('check vote error:', e); });
+  }
+}
+
 
 async function voteQuestion(questionId, choice, btn) {
   if (!window.Telegram || !window.Telegram.WebApp || !window.Telegram.WebApp.initData) {
@@ -2486,17 +2599,17 @@ async function voteQuestion(questionId, choice, btn) {
     }
 
     if (data.duplicate) {
-      showToast('\u0422\u044b \u0443\u0436\u0435 \u0433\u043e\u043b\u043e\u0441\u043e\u0432\u0430\u043b!');
-      // Обновляем UI если есть данные — иначе просто помечаем voted
+      showToast('Ты уже голосовал!');
+      var actualChoice = data.user_choice || null;
       if (data.question_after) {
-        updateFeedCardVoteUI(questionId, data.question_after, choice);
+        updateFeedCardVoteUI(questionId, data.question_after, actualChoice);
       } else {
         card.classList.add('voted');
       }
       return;
     }
 
-    if (!res.ok || !data.ok) {
+        if (!res.ok || !data.ok) {
       if (data.error === 'invalid_auth') showToast('\u041e\u0442\u043a\u0440\u043e\u0439 \u0447\u0435\u0440\u0435\u0437 Telegram!');
       else showToast('\u274c \u041e\u0448\u0438\u0431\u043a\u0430 \u0433\u043e\u043b\u043e\u0441\u043e\u0432\u0430\u043d\u0438\u044f');
       return;
@@ -2562,13 +2675,12 @@ async function voteFromDetail(choice) {
     }
 
     if (data.duplicate) {
-      showToast('\u0422\u044b \u0443\u0436\u0435 \u0433\u043e\u043b\u043e\u0441\u043e\u0432\u0430\u043b!');
-      // Обновляем оба экрана если есть данные
+      showToast('Ты уже голосовал!');
+      var actualChoice = data.user_choice || null;
       if (data.question_after) {
-        updateDetailVoteUI(data.question_after, choice);
-        updateFeedCardVoteUI(q.id, data.question_after, choice);
+        updateDetailVoteUI(data.question_after, actualChoice);
+        updateFeedCardVoteUI(q.id, data.question_after, actualChoice);
       } else {
-        // Нет данных — просто стабилизируем UI
         if (btns) btns.style.opacity = '1';
         if (detailBtnYes) detailBtnYes.disabled = false;
         if (detailBtnNo)  detailBtnNo.disabled  = false;
@@ -2576,7 +2688,7 @@ async function voteFromDetail(choice) {
       return;
     }
 
-    if (!res.ok || !data.ok) {
+        if (!res.ok || !data.ok) {
       showToast('\u274c ' + (data.error === 'invalid_auth' ? '\u041e\u0442\u043a\u0440\u043e\u0439 \u0447\u0435\u0440\u0435\u0437 Telegram!' : '\u041e\u0448\u0438\u0431\u043a\u0430 \u0433\u043e\u043b\u043e\u0441\u043e\u0432\u0430\u043d\u0438\u044f'));
       if (btns) btns.style.opacity = '1';
       if (detailBtnYes) detailBtnYes.disabled = false;
