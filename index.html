@@ -1412,7 +1412,10 @@
 
 </div>
 <div class="header">
-  <div class="logo">ИНСАЙТ</div>
+  <div style="display:flex;flex-direction:column;line-height:1;">
+    <div class="logo">ИНСАЙТ</div>
+    <div id="app-version" style="font-size:9px;color:var(--text2);font-weight:600;letter-spacing:0.3px;padding-left:2px;opacity:0.7;"></div>
+  </div>
   <div class="stats-pill">
     🏆 <strong id="user-rank">#—</strong> <span id="user-total">из —</span>
   </div>
@@ -1769,6 +1772,8 @@
 </div>
 
 <script>
+const APP_VERSION = '1.4.0';
+
 // TELEGRAM WEBAPP INIT
 const tg = window.Telegram?.WebApp;
 let currentUser = {
@@ -2621,6 +2626,10 @@ initTheme();
 // ─────────────────────────────────────────────────────────────────────────────
 
 window.addEventListener('DOMContentLoaded', async () => {
+  // Показываем версию приложения
+  const versionEl = document.getElementById('app-version');
+  if (versionEl) versionEl.textContent = 'v' + APP_VERSION;
+
   // Сброс онбординга по параметру URL (для тестирования)
   const urlParams = new URLSearchParams(window.location.search);
   if (urlParams.get('reset_ob') === '1') {
