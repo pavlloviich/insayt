@@ -1875,12 +1875,14 @@ async function loadProfile() {
   const betterThan = total > 1 ? Math.round((worse / (total - 1)) * 100) : 0;
   document.getElementById('stat-better').textContent = betterThan + '%';
 
-  // Загружаем вопросы пользователя через api/questions (источник правды)
-  try {
-    const myQRes = await fetch('https://insayt.vercel.app/api/questions?author_id=' + currentUser.id);
-    const myQData = await myQRes.json();
-    if (myQData.ok) renderMyQuestions(myQData.questions || []);
-  } catch(e) { console.error('loadProfile myQ error:', e); }
+  // Загружаем вопросы пользователя
+  const { data: myQ } = await db
+    .from('questions')
+    .select('*')
+    .eq('author_id', currentUser.id)
+    .order('created_at', { ascending: false });
+
+  if (myQ && myQ.length > 0) renderMyQuestions(myQ);
 }
 
 function renderMyQuestions(questions) {
@@ -1902,30 +1904,24 @@ function renderMyQuestions(questions) {
   }
 
   questions.forEach(q => {
-    const total = q.total_votes || 0;
-    const pctYes = total > 0 ? Math.round((q.votes_yes || 0) / total * 100) : 50;
-    const statusLabel = q.status === 'active' ? 'Активен'
-      : q.status === 'awaiting' ? '⏳ Ожидает итога'
-      : q.status === 'resolved_yes' ? '✅ Сбылось'
-      : '❌ Не сбылось';
-    const statusColor = q.status === 'active' || q.status === 'awaiting' ? 'var(--accent)'
-      : q.status === 'resolved_yes' ? 'var(--green)' : 'var(--red)';
+    const total = q.votes_yes + q.votes_no;
+    const pctYes = total > 0 ? Math.round(q.votes_yes / total * 100) : 50;
     const item = document.createElement('div');
-    item.style.cssText = 'background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:16px; box-shadow:var(--shadow); margin-bottom:10px;';
-    item.innerHTML =
-      '<div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">' +
-        '<div style="font-size:10px; font-weight:700; padding:3px 8px; border-radius:6px; background:rgba(61,90,241,0.1); color:var(--accent);">' + q.topic + '</div>' +
-        '<div style="font-size:11px; color:var(--text2);">👥 ' + total.toLocaleString('ru') + ' голосов</div>' +
-      '</div>' +
-      '<div style="font-size:14px; font-weight:700; color:var(--text); margin-bottom:10px; line-height:1.4;">' + q.text + '</div>' +
-      '<div style="display:flex; justify-content:space-between; align-items:center;">' +
-        '<div style="font-size:12px; color:var(--text2); font-weight:600;">ДА ' + pctYes + '% · НЕТ ' + (100-pctYes) + '%</div>' +
-        '<div style="font-size:11px; color:' + statusColor + '; background:rgba(61,90,241,0.08); padding:4px 10px; border-radius:8px;">' + statusLabel + '</div>' +
-      '</div>';
+    item.style.cssText = 'background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:16px; box-shadow:var(--shadow);';
+    item.innerHTML = `
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
+        <div style="font-size:10px; font-weight:700; padding:3px 8px; border-radius:6px; background:rgba(61,90,241,0.1); color:var(--accent);">${q.topic}</div>
+        <div style="font-size:11px; color:var(--text2);">👥 ${total.toLocaleString('ru')} голосов</div>
+      </div>
+      <div style="font-size:14px; font-weight:700; color:var(--text); margin-bottom:10px; line-height:1.4;">${q.text}</div>
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <div style="font-size:12px; color:var(--text2); font-weight:600;">ДА ${pctYes}% · НЕТ ${100-pctYes}%</div>
+        <div style="font-size:11px; color:var(--accent); background:rgba(61,90,241,0.08); padding:4px 10px; border-radius:8px;">Активен</div>
+      </div>
+    `;
     list.appendChild(item);
   });
 }
-
 
 // Загружаем реальный рейтинг пользователя
 async function loadUserRank() {
@@ -2114,8 +2110,9 @@ async function loadVotesAndComments(data) {
       const card = document.getElementById('q-' + id);
       if (!card) return;
       const footer = card.querySelector('.q-card-footer-bar span');
-      if (footer && countMap[id]) {
-        footer.innerHTML = footer.innerHTML.replace(/💬 \d+/, '💬 ' + (countMap[id] || 0));
+      if (footer) {
+        const count = countMap[id] || 0;
+        footer.innerHTML = footer.innerHTML.replace(/💬 \d+/, '💬 ' + count);
       }
     });
   }
@@ -2260,8 +2257,18 @@ function renderQuestions(questions) {
       else if (delta < 0) deltaHtml = '<span class="delta-badge delta-dn">↓ ' + delta + '% за ' + period + '</span>';
     }
 
-    const liveOrResolved = isResolved ? '🏁 Завершён' : '<span class="live-dot"></span><span style="font-size:12px;color:var(--text2);">' + total + ' голосов</span>';
-    const footerDate = isResolved ? '✓ Завершён' : '📅 ' + (q.closes_at ? new Date(q.closes_at).toLocaleDateString('ru') : 'Открыт');
+    const nowMs = Date.now();
+    const isExpired = !isResolved && q.closes_at && new Date(q.closes_at).getTime() < nowMs;
+    let liveOrResolved, footerDate;
+    if (isResolved) {
+      liveOrResolved = '🏁 Завершён'; footerDate = '✓ Завершён';
+    } else if (isExpired) {
+      liveOrResolved = '<span style="font-size:11px;font-weight:700;color:var(--red);background:rgba(240,84,84,0.1);padding:2px 8px;border-radius:10px;">⏳ Ожидает итога</span>';
+      footerDate = '📅 ' + new Date(q.closes_at).toLocaleDateString('ru');
+    } else {
+      liveOrResolved = '<span class="live-dot"></span><span style="font-size:12px;color:var(--text2);">' + total + ' голосов</span>';
+      footerDate = '📅 ' + (q.closes_at ? new Date(q.closes_at).toLocaleDateString('ru') : 'Открыт');
+    }
 
     card.innerHTML =
       '<div class="q-card-accent"></div>' +
@@ -2324,8 +2331,10 @@ async function voteQuestion(questionId, choice, btn) {
 
     const data = await res.json();
 
+    if (res.status === 429 || data.error === 'rate_limited') { showToast('⏳ Подожди секунду...'); btn.disabled = false; return; }
     if (!res.ok || !data.ok) {
-      showToast('Ошибка: ' + (data.error || 'Не удалось проголосовать'));
+      if (data.error === 'invalid_auth') showToast('Открой через Telegram!');
+      else showToast('Ошибка: ' + (data.error || 'Не удалось проголосовать'));
       btn.disabled = false;
       return;
     }
@@ -2546,20 +2555,12 @@ function renderRating(users, total, mode = 'overall') {
 }
 
 // Сохраняем вопрос в базу
-async function saveQuestion(text, optYes, optNo, topic, closesAt) {
-  if (!currentUser.id) return null;
-  const { data, error } = await db.from('questions').insert({
-    author_id: currentUser.id,
-    text: text,
-    option_yes: optYes,
-    option_no: optNo,
-    topic: topic,
-    closes_at: closesAt || null,
-    status: 'active'
-  }).select().single();
-  if (error) { console.error('saveQuestion error:', error); return null; }
-  return data;
+async function saveQuestion() {
+  // Deprecated — вопросы теперь создаются через api/create-question
+  console.warn('saveQuestion is deprecated');
+  return null;
 }
+
 
 // Применяем данные пользователя к интерфейсу после загрузки
 // ─── THEME SYSTEM ─────────────────────────────────────────────────────────────
@@ -2739,13 +2740,18 @@ async function openQuestionDetail(questionId) {
 
   let q = null;
   try {
-    const res = await fetch('https://insayt.vercel.app/api/questions?id=' + questionId);
+    const res = await fetch('https://insayt.vercel.app/api/feed', { cache: 'no-store' });
     const payload = await res.json();
-    if (res.ok && payload.ok && payload.questions && payload.questions.length > 0) {
-      q = payload.questions[0];
+    if (res.ok && payload.ok && Array.isArray(payload.questions)) {
+      q = payload.questions.find(item => item.id === questionId) || null;
     }
   } catch (e) {
-    console.error('openQuestionDetail error:', e);
+    console.error('openQuestionDetail feed error:', e);
+  }
+
+  if (!q && db) {
+    const fallback = await db.from('questions').select('*').eq('id', questionId).single();
+    q = fallback.data || null;
   }
   if (!q) return;
   _qdQuestion = q;
@@ -2967,28 +2973,26 @@ function cancelReply() {
 }
 
 async function submitComment() {
-  if (!currentUser.id || !db) { showToast('Открой через Telegram!'); return; }
+  if (!window.Telegram?.WebApp?.initData) { showToast('Открой через Telegram!'); return; }
   const text = document.getElementById('comment-textarea').value.trim();
   if (!text) return;
-
+  if (text.length > 500) { showToast('⚠️ Максимум 500 символов'); return; }
   const btn = document.querySelector('.comment-send-btn');
-  btn.disabled = true;
-
-  const { error } = await db.from('comments').insert({
-    question_id: _qdQuestionId,
-    user_id: currentUser.id,
-    parent_id: _qdReplyToId || null,
-    text
-  });
-
-  btn.disabled = false;
-
-  if (error) { showToast('❌ Ошибка: ' + error.message); return; }
-
-  document.getElementById('comment-textarea').value = '';
-  document.getElementById('comment-textarea').style.height = 'auto';
-  cancelReply();
-  await loadComments();
+  if (btn) btn.disabled = true;
+  try {
+    const res = await fetch('https://insayt.vercel.app/api/comment', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ initData: window.Telegram.WebApp.initData, question_id: _qdQuestionId, text, parent_id: _qdReplyToId || null })
+    });
+    const data = await res.json();
+    if (res.status === 429) { showToast('⏳ ' + (data.message || 'Лимит комментариев')); return; }
+    if (!data.ok) { showToast('❌ ' + (data.error || 'Ошибка')); return; }
+    document.getElementById('comment-textarea').value = '';
+    document.getElementById('comment-textarea').style.height = 'auto';
+    cancelReply();
+    await loadComments();
+  } catch(e) { showToast('❌ Ошибка сети'); }
+  finally { if (btn) btn.disabled = false; }
 }
 
 // ============ USER PROFILE (чужой профиль) ============
@@ -3049,12 +3053,9 @@ async function openUserProfile(userId) {
     updateFollowBtn();
   }
 
-  // Вопросы пользователя через api/questions (источник правды)
-  try {
-    const upoQRes = await fetch('https://insayt.vercel.app/api/questions?author_id=' + userId);
-    const upoQData = await upoQRes.json();
-    renderUpoQuestions(upoQData.ok ? (upoQData.questions || []) : []);
-  } catch(e) { renderUpoQuestions([]); }
+  // Вопросы пользователя
+  const { data: questions } = await db.from('questions').select('*').eq('author_id', userId).order('created_at', {ascending: false});
+  renderUpoQuestions(questions || []);
 }
 
 function closeUserProfile() {
@@ -3107,31 +3108,29 @@ function switchUpoTab(name, btn) {
 
 function renderUpoQuestions(questions) {
   const list = document.getElementById('upo-questions-list');
-  if (!list) return;
-  if (!questions || !questions.length) {
-    list.innerHTML = '<div style="text-align:center;padding:40px 20px;background:var(--surface);border:1.5px dashed var(--border);border-radius:20px;"><div style="font-size:40px;margin-bottom:12px;">📋</div><div style="font-size:15px;font-weight:700;">Нет вопросов</div></div>';
+  if (!questions.length) {
+    list.innerHTML = `<div style="text-align:center;padding:40px 20px;background:var(--surface);border:1.5px dashed var(--border);border-radius:20px;"><div style="font-size:40px;margin-bottom:12px;">📋</div><div style="font-size:15px;font-weight:700;">Нет вопросов</div></div>`;
     return;
   }
   list.innerHTML = '';
   questions.forEach(q => {
-    const total = q.total_votes || 0;
-    const pctYes = total > 0 ? Math.round((q.votes_yes || 0) / total * 100) : 50;
-    const statusLabel = q.status === 'active' ? 'Активен'
-      : q.status === 'awaiting' ? '⏳ Ожидает итога'
-      : q.status === 'resolved_yes' ? '✅ Сбылось' : '❌ Не сбылось';
+    const total = q.votes_yes + q.votes_no;
+    const pct = total > 0 ? Math.round(q.votes_yes / total * 100) : 50;
     const item = document.createElement('div');
-    item.style.cssText = 'background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:16px;margin-bottom:10px;box-shadow:var(--shadow);cursor:pointer;';
-    item.onclick = function() { openQuestionDetail(q.id); };
-    item.innerHTML =
-      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">' +
-        '<div style="font-size:10px;font-weight:700;padding:3px 8px;border-radius:6px;background:rgba(61,90,241,0.1);color:var(--accent);">' + q.topic + '</div>' +
-        '<div style="font-size:11px;color:var(--text2);">👥 ' + total.toLocaleString('ru') + '</div>' +
-      '</div>' +
-      '<div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:10px;line-height:1.4;">' + q.text + '</div>' +
-      '<div style="display:flex;justify-content:space-between;align-items:center;">' +
-        '<div style="font-size:12px;color:var(--text2);font-weight:600;">ДА ' + pctYes + '% · НЕТ ' + (100-pctYes) + '%</div>' +
-        '<div style="font-size:11px;color:var(--accent);background:rgba(61,90,241,0.08);padding:4px 10px;border-radius:8px;">' + statusLabel + '</div>' +
-      '</div>';
+    item.style.cssText = 'background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:14px 16px;margin-bottom:10px;box-shadow:var(--shadow);';
+    item.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+        <div style="font-size:10px;font-weight:700;color:var(--accent);background:rgba(61,90,241,0.08);padding:3px 8px;border-radius:6px;">${q.topic}</div>
+        <div style="font-size:11px;color:var(--text2);">👥 ${total}</div>
+      </div>
+      <div style="font-size:14px;font-weight:700;line-height:1.4;margin-bottom:10px;">${q.text}</div>
+      <div style="height:4px;background:var(--surface2);border-radius:4px;overflow:hidden;margin-bottom:5px;">
+        <div style="height:100%;width:${pct}%;background:var(--accent);border-radius:4px;"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:11px;font-weight:700;">
+        <span style="color:var(--green)">ДА ${pct}%</span>
+        <span style="color:var(--red)">НЕТ ${100-pct}%</span>
+      </div>`;
     list.appendChild(item);
   });
 }
@@ -3351,67 +3350,75 @@ function updateCharCount(el, countId, max) {
 }
 
 async function submitQuestion() {
+  if (!window.Telegram?.WebApp?.initData) {
+    showToast('Открой через Telegram!');
+    return;
+  }
+
   const q = document.getElementById('q-text').value.trim();
   const yes = document.getElementById('ans-yes').value.trim();
   const no = document.getElementById('ans-no').value.trim();
   const topicEl = document.querySelector('#topic-grid .topic-select-chip.active');
-  const topic = topicEl ? topicEl.textContent : '⚽ Спорт';
+  const topic = topicEl ? topicEl.textContent.trim() : '';
   const dateVal = document.getElementById('q-date').value;
   const closesAt = dateVal ? new Date(dateVal).toISOString() : null;
 
   const btn = document.getElementById('create-submit-btn');
-  btn.textContent = 'Сохраняем...';
+  btn.textContent = 'Публикуем...';
   btn.disabled = true;
 
-  // Проверяем лимит — не более 3 вопросов в сутки
-  if (currentUser.id && db) {
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
-    const { count } = await db
-      .from('questions')
-      .select('*', { count: 'exact', head: true })
-      .eq('author_id', currentUser.id)
-      .gte('created_at', todayStart.toISOString());
+  try {
+    const res = await fetch('https://insayt.vercel.app/api/create-question', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        initData: window.Telegram.WebApp.initData,
+        text: q,
+        option_yes: yes,
+        option_no: no,
+        topic: topic,
+        closes_at: closesAt
+      })
+    });
 
-    if (count >= 3) {
-      showToast('⛔ Лимит 3 вопроса в сутки исчерпан');
-      btn.textContent = 'Опубликовать вопрос →';
-      btn.disabled = false;
-      btn.style.opacity = '1';
-      btn.style.cursor = 'pointer';
+    const data = await res.json();
+
+    if (res.status === 429) {
+      showToast('⛔ ' + (data.message || 'Лимит 3 вопроса в сутки'));
       return;
     }
+
+    if (!data.ok) {
+      showToast('❌ ' + (data.message || data.error || 'Ошибка создания'));
+      return;
+    }
+
+    // Успех — только после реального сохранения в БД
+    showToast('🎯 Вопрос создан!');
+
+    // Сброс формы
+    document.getElementById('q-text').value = '';
+    document.getElementById('q-chars').textContent = '0 / 120';
+    document.getElementById('ans-yes').value = 'Да';
+    document.getElementById('ans-no').value = 'Нет';
+    document.getElementById('preview-q-text').textContent = 'Введи вопрос выше...';
+    document.getElementById('preview-yes').textContent = '✓ Да';
+    document.getElementById('preview-no').textContent = '✗ Нет';
+    document.querySelectorAll('#topic-grid .topic-select-chip').forEach(c => c.classList.remove('active'));
+
+    showScreen('feed');
+    await loadQuestions();
+
+  } catch(e) {
+    console.error('submitQuestion error:', e);
+    showToast('❌ Ошибка сети');
+  } finally {
+    btn.textContent = 'Опубликовать вопрос →';
+    btn.disabled = false;
+    btn.style.opacity = '0.4';
   }
-
-  // Сохраняем в базу
-  const saved = await saveQuestion(q, yes, no, topic, closesAt);
-
-  if (saved) {
-    addToMyQuestions(q, yes, no, topic);
-    showToast('🎯 Вопрос создан! +50 очков');
-  } else {
-    // Если не авторизован — добавляем локально
-    addQuestionToFeed(q, yes, no, topic);
-    addToMyQuestions(q, yes, no, topic);
-    showToast('🎯 Вопрос добавлен локально');
-  }
-
-  // Сброс формы
-  document.getElementById('q-text').value = '';
-  document.getElementById('q-chars').textContent = '0 / 120';
-  document.getElementById('ans-yes').value = 'Да';
-  document.getElementById('ans-no').value = 'Нет';
-  document.getElementById('preview-q-text').textContent = 'Введи вопрос выше...';
-  document.getElementById('preview-yes').textContent = '✓ Да';
-  document.getElementById('preview-no').textContent = '✗ Нет';
-  btn.textContent = 'Опубликовать вопрос →';
-  btn.disabled = true;
-  btn.style.opacity = '0.4';
-  document.querySelectorAll('#topic-grid .topic-select-chip').forEach(c => c.classList.remove('active'));
-
-  showScreen('feed');
-  await loadQuestions();
 }
+
 
 function addToMyQuestions(q, yes, no, topic) {
   const list = document.getElementById('my-questions-list');
