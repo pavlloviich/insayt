@@ -3451,6 +3451,90 @@ function showToast(msg) {
   setTimeout(() => t.classList.remove('show'), 2500);
 }
 
+
+// ─── THEME SYSTEM ────────────────────────────────────────────────────────────
+function initTheme() {
+  var saved = null;
+  try { saved = localStorage.getItem('insayt_theme'); } catch(e) {}
+  if (saved === 'dark' || saved === 'light') {
+    applyTheme(saved);
+  } else {
+    var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    applyTheme(prefersDark ? 'dark' : 'light');
+  }
+  try {
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function(e) {
+      var s = null;
+      try { s = localStorage.getItem('insayt_theme'); } catch(err) {}
+      if (!s) applyTheme(e.matches ? 'dark' : 'light');
+    });
+  } catch(e) {}
+}
+
+function applyTheme(theme) {
+  if (theme === 'dark') {
+    document.body.classList.add('theme-dark');
+  } else {
+    document.body.classList.remove('theme-dark');
+  }
+  var icon = document.getElementById('theme-icon');
+  var label = document.getElementById('theme-label');
+  if (icon) icon.textContent = theme === 'dark' ? '🌙' : '☀️';
+  if (label) label.textContent = theme === 'dark' ? 'Тёмная' : 'Светлая';
+}
+
+function toggleTheme() {
+  var isDark = document.body.classList.contains('theme-dark');
+  var next = isDark ? 'light' : 'dark';
+  try { localStorage.setItem('insayt_theme', next); } catch(e) {}
+  applyTheme(next);
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
+initTheme();
+
+window.addEventListener('DOMContentLoaded', async () => {
+  // Показываем версию
+  var versionEl = document.getElementById('app-version');
+  if (versionEl) versionEl.textContent = 'v' + APP_VERSION;
+
+  // Сброс онбординга по параметру URL
+  var urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.get('reset_ob') === '1') {
+    try { localStorage.removeItem('insayt_onboarding_done'); } catch(e) {}
+    try { localStorage.removeItem('insayt_ob_' + (currentUser.id || 'guest')); } catch(e) {}
+    try { sessionStorage.removeItem('insayt_ob'); } catch(e) {}
+    try { document.cookie = 'insayt_ob=; max-age=0; path=/'; } catch(e) {}
+  }
+
+  var nameEl = document.getElementById('profile-name');
+  if (nameEl) nameEl.textContent = currentUser.name || 'Пользователь';
+  var avatarEl = document.getElementById('profile-avatar');
+  if (avatarEl && currentUser.photo) {
+    avatarEl.innerHTML = '<img loading="lazy" src="' + currentUser.photo + '" style="width:100%; height:100%; border-radius:50%; object-fit:cover;">';
+  }
+  var rankEl = document.getElementById('profile-rank-text');
+  if (rankEl && currentUser.username) {
+    rankEl.textContent = '@' + currentUser.username + ' • Загрузка рейтинга...';
+  }
+
+  // Быстрый рендер из кэша
+  try {
+    var cached = localStorage.getItem('insayt_questions_cache');
+    if (cached) {
+      var parsed = JSON.parse(cached);
+      if (Date.now() - parsed.ts < 60000 && parsed.data && parsed.data.length > 0) {
+        renderQuestionsFromCache(parsed.data);
+      }
+    }
+  } catch(e) {}
+
+  // Параллельный старт
+  loadQuestions();
+  loadUserRank();
+  setTimeout(function() { syncUser(); loadProfile(); }, 300);
+});
+
 </script>
 </body>
 </html>
