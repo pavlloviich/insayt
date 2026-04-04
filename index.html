@@ -699,6 +699,9 @@
     display: flex; flex-direction: column;
     animation: slideUpModal 0.3s cubic-bezier(0.34,1.56,0.64,1) both;
   }
+  body.theme-dark .follow-modal {
+    background: #1a1d35;
+  }
   @keyframes slideUpModal {
     from { transform: translateY(100%); opacity: 0; }
     to { transform: translateY(0); opacity: 1; }
@@ -730,6 +733,9 @@
     box-shadow: var(--shadow);
     cursor: pointer;
     transition: all 0.15s;
+  }
+  body.theme-dark .follow-user-item {
+    background: rgba(255,255,255,0.06);
   }
   .follow-user-item:active { transform: scale(0.98); }
   .follow-user-avatar {
@@ -1280,6 +1286,40 @@
   .q-card:nth-child(3) { animation-delay: 0.15s; }
   .q-card:nth-child(4) { animation-delay: 0.2s; }
 
+  /* DATE INPUT FIX */
+  #q-date {
+    width: 100%;
+    background: var(--surface2);
+    border: 1.5px solid var(--border);
+    border-radius: 12px;
+    padding: 12px 14px;
+    font-family: 'Manrope', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+    outline: none;
+    box-sizing: border-box;
+    -webkit-appearance: none;
+    appearance: none;
+    display: block;
+    min-height: 46px;
+  }
+  #q-date::-webkit-date-and-time-value {
+    text-align: left;
+    color: var(--text);
+  }
+  #q-date::-webkit-calendar-picker-indicator {
+    opacity: 0.6;
+    cursor: pointer;
+    filter: var(--date-icon-filter, none);
+  }
+  body.theme-dark #q-date {
+    color-scheme: dark;
+  }
+  body.theme-dark #q-date::-webkit-calendar-picker-indicator {
+    filter: invert(1);
+  }
+
 </style>
 </head>
 <body>
@@ -1603,8 +1643,7 @@
     <div style="background:var(--surface); border:1px solid var(--border); border-radius:20px; padding:18px; box-shadow:var(--shadow);">
       <div class="section-title" style="padding:0 0 10px;">📅 Дата закрытия</div>
       <input type="date" id="q-date"
-        style="width:100%; background:var(--surface2); border:1.5px solid var(--border); border-radius:12px; padding:12px 14px; font-family:Manrope,sans-serif; font-size:14px; font-weight:600; color:var(--text); outline:none; box-sizing:border-box;"
-        oninput="clampDate(this)">
+        oninput="clampDate(this); updatePreview();">
       <div style="font-size:11px; color:var(--text2); margin-top:5px;">Максимум 45 дней от сегодня</div>
       <div id="err-date" style="font-size:12px;color:var(--red);margin-top:4px;display:none;"></div>
     </div>
@@ -1777,7 +1816,7 @@
 </div>
 
 <script>
-const APP_VERSION = '1.8.0';
+const APP_VERSION = '1.9.0';
 
 // TELEGRAM WEBAPP INIT
 const tg = window.Telegram?.WebApp;
@@ -1979,6 +2018,7 @@ var _isLoadingFeed = false;
 var _feedError = null;
 var _isVoting = {};
 var _isVotingDetail = false;
+var _ratingTopic = 'overall';
 // ─────────────────────────────────────────────────────────────────────────────
 
 function showFeedLoading() {
@@ -3376,7 +3416,7 @@ function showScreen(name) {
   document.getElementById('screen-' + name).classList.add('active');
   document.getElementById('nav-' + name).classList.add('active');
   // Загружаем данные при переключении
-  if (name === 'rating') { if (!document.querySelector('.rating-item')) loadRating(); }
+  if (name === 'rating') { loadRating(); }
   if (name === 'profile') loadProfile();
   if (name === 'add') initDateInput();
 }
