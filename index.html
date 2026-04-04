@@ -3444,6 +3444,240 @@ function shareQuestion(questionId, questionText) {
 }
 // ─────────────────────────────────────────────────────────────────────
 
+async function loadRating() {
+  if (!db) return;
+  const list = document.getElementById('rating-list');
+  list.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text2);">Загрузка...</div>';
+
+  if (_ratingTopic === 'overall') {
+    // Общий рейтинг — по очкам
+    const { data, count } = await db
+      .from('users')
+      .select('id, name, username, photo_url, points, correct, total', { count: 'exact' })
+      .order('points', { ascending: false })
+      .limit(100);
+    if (data) renderRating(data, count || data.length, 'overall');
+  } else {
+    // Тематический рейтинг — по точности в теме
+    await loadTopicRating(_ratingTopic);
+  }
+}
+
+function switchRatingTab(el) {
+  document.querySelectorAll('.rating-tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  _ratingTopic = el.getAttribute('data-topic');
+  loadRating();
+}
+
+async function loadTopicRating(topic) {
+  // Берём голоса только по вопросам нужной темы
+  const { data: votes } = await db
+    .from('votes')
+    .select('user_id, choice, questions!inner(topic, status, id)')
+    .ilike('questions.topic', `%${topic}%`)
+    .in('questions.status', ['resolved_yes', 'resolved_no']);
+
+  if (!votes || votes.length === 0) {
+    const list = document.getElementById('rating-list');
+    list.innerHTML = `<div style="text-align:center;padding:40px;color:var(--text2);">
+      <div style="font-size:40px;margin-bottom:12px;">🔍</div>
+      <div style="font-size:15px;font-weight:700;margin-bottom:6px;">Нет данных</div>
+      <div style="font-size:13px;">По теме «${topic}» ещё нет завершённых вопросов</div>
+    </div>`;
+    const subtitle = document.getElementById('rating-subtitle');
+    if (subtitle) subtitle.textContent = `Тема: ${topic} — нет завершённых вопросов`;
+    return;
+  }
+
+  // Считаем статистику по каждому пользователю
+  const stats = {};
+  votes.forEach(v => {
+    const uid = v.user_id;
+    if (!stats[uid]) stats[uid] = { correct: 0, total: 0 };
+    stats[uid].total++;
+    const q = v.questions;
+    const won = (q.status === 'resolved_yes' && v.choice === 'yes') ||
+                (q.status === 'resolved_no' && v.choice === 'no');
+    if (won) stats[uid].correct++;
+  });
+
+  // Загружаем имена пользователей
+  const userIds = Object.keys(stats);
+  const { data: users } = await db
+    .from('users')
+    .select('id, name, username, photo_url, points')
+    .in('id', userIds);
+
+  if (!users) return;
+
+  // Собираем и сортируем по точности (мин. 2 прогноза)
+  const ranked = users
+    .map(u => ({
+      ...u,
+      topicCorrect: stats[u.id]?.correct || 0,
+      topicTotal: stats[u.id]?.total || 0,
+      topicAccuracy: stats[u.id]?.total >= 2
+        ? Math.round(stats[u.id].correct / stats[u.id].total * 100)
+        : 0
+    }))
+    .filter(u => u.topicTotal >= 1)
+    .sort((a, b) => b.topicAccuracy - a.topicAccuracy || b.topicTotal - a.topicTotal);
+
+  renderRating(ranked, ranked.length, topic);
+}
+
+function renderRating(users, total, mode = 'overall') {
+  const list = document.getElementById('rating-list');
+  const subtitle = document.getElementById('rating-subtitle');
+  if (!list) return;
+
+  const isTopic = mode !== 'overall';
+  const topicEmoji = { 'Политика': '🏛', 'Крипта': '₿', 'Технологии': '💻', 'Экономика': '💰' };
+
+  if (subtitle) {
+    subtitle.textContent = isTopic
+      ? `${topicEmoji[mode] || ''} ${mode} — топ по точности прогнозов`
+      : `${total.toLocaleString('ru')} участников • по очкам`;
+  }
+
+  const medals = ['🥇','🥈','🥉'];
+  const emojis = ['🦁','🐺','🦊','🐻','🦅','🦋','🐯','🦄','🐉','🦩'];
+  list.innerHTML = '';
+
+  const topUsers = users.slice(0, 10);
+  topUsers.forEach((u, i) => {
+    const accuracy = isTopic ? u.topicAccuracy : (u.total > 0 ? Math.round(u.correct / u.total * 100) : 0);
+    const votes = isTopic ? u.topicTotal : u.total;
+    const isMe = u.id === currentUser.id;
+
+    const item = document.createElement('div');
+    item.className = 'rating-item' + (isMe ? ' me' : '');
+
+    const avatarContent = u.photo_url
+      ? `<img loading="lazy" src="${u.photo_url}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">`
+      : (isMe ? '😎' : emojis[i % emojis.length]);
+
+    item.innerHTML = `
+      <div class="rank ${i===0?'gold':i===1?'silver':i===2?'bronze':''}">${i < 3 ? medals[i] : i+1}</div>
+      <div class="avatar" style="${isMe ? 'background:linear-gradient(135deg,var(--accent),var(--green))' : ''}">${avatarContent}</div>
+      <div class="rating-info">
+        <div class="rating-name">${isMe ? 'Ты' : u.name}</div>
+        <div class="rating-stats">${accuracy}% точность • ${votes} прогнозов</div>
+      </div>
+      <div class="rating-points" style="${isTopic ? 'font-size:16px;' : ''}">${isTopic ? accuracy + '%' : u.points.toLocaleString('ru')}</div>
+    `;
+    if (!isMe) { item.style.cursor = 'pointer'; item.onclick = () => openUserProfile(u.id); }
+    list.appendChild(item);
+  });
+
+  // Показываем себя если не в топ-10
+  const meInTop = topUsers.some(u => u.id === currentUser.id);
+  if (!meInTop && currentUser.id) {
+    const meData = users.find(u => u.id === currentUser.id);
+    if (meData) {
+      const divider = document.createElement('div');
+      divider.style.cssText = 'text-align:center;padding:10px;color:var(--text2);font-size:12px;';
+      divider.textContent = '• • •';
+      list.appendChild(divider);
+
+      const myRank = users.findIndex(u => u.id === currentUser.id) + 1;
+      const accuracy = isTopic ? meData.topicAccuracy : (meData.total > 0 ? Math.round(meData.correct / meData.total * 100) : 0);
+      const votes = isTopic ? meData.topicTotal : meData.total;
+
+      const meItem = document.createElement('div');
+      meItem.className = 'rating-item me';
+      meItem.innerHTML = `
+        <div class="rank" style="color:var(--accent)">${myRank}</div>
+        <div class="avatar" style="background:linear-gradient(135deg,var(--accent),var(--green))">😎</div>
+        <div class="rating-info">
+          <div class="rating-name">Ты</div>
+          <div class="rating-stats">${accuracy}% точность • ${votes} прогнозов</div>
+        </div>
+        <div class="rating-points">${isTopic ? accuracy + '%' : meData.points.toLocaleString('ru')}</div>
+      `;
+      list.appendChild(meItem);
+    }
+  }
+}
+
+async function showFollowList(type) {
+  await openFollowModal(type, _upoUserId || currentUser.id);
+}
+
+async function showMyFollowList(type) {
+  await openFollowModal(type, currentUser.id);
+}
+
+async function openFollowModal(type, userId) {
+  if (!db || !userId) return;
+
+  const overlay = document.getElementById('follow-modal-overlay');
+  const title = document.getElementById('follow-modal-title');
+  const list = document.getElementById('follow-modal-list');
+
+  title.textContent = type === 'following' ? 'Подписки' : 'Подписчики';
+  list.innerHTML = '<div style="text-align:center;padding:30px;color:var(--text2);">Загрузка...</div>';
+  overlay.classList.add('open');
+
+  let userIds = [];
+  if (type === 'following') {
+    const { data } = await db.from('follows').select('following_id').eq('follower_id', userId);
+    userIds = (data || []).map(r => r.following_id);
+  } else {
+    const { data } = await db.from('follows').select('follower_id').eq('following_id', userId);
+    userIds = (data || []).map(r => r.follower_id);
+  }
+
+  if (!userIds.length) {
+    list.innerHTML = `<div style="text-align:center;padding:40px;">
+      <div style="font-size:40px;margin-bottom:12px;">${type === 'following' ? '🔭' : '👥'}</div>
+      <div style="font-size:15px;font-weight:700;margin-bottom:6px;">${type === 'following' ? 'Нет подписок' : 'Нет подписчиков'}</div>
+      <div style="font-size:13px;color:var(--text2);">${type === 'following' ? 'Подпишись на участников из рейтинга' : 'Пока никто не подписался'}</div>
+    </div>`;
+    return;
+  }
+
+  const { data: users } = await db
+    .from('users')
+    .select('id, name, username, photo_url, points, correct, total')
+    .in('id', userIds);
+
+  if (!users || !users.length) { list.innerHTML = ''; return; }
+
+  list.innerHTML = '';
+  users.forEach(u => {
+    const accuracy = u.total > 0 ? Math.round(u.correct / u.total * 100) : 0;
+    const isMe = u.id === currentUser.id;
+
+    const item = document.createElement('div');
+    item.className = 'follow-user-item';
+    item.onclick = () => {
+      closeFollowModal();
+      if (!isMe) openUserProfile(u.id);
+    };
+
+    const avatarContent = u.photo_url
+      ? `<img loading="lazy" src="${u.photo_url}" style="width:100%;height:100%;object-fit:cover;">`
+      : (u.name?.[0] || '😊');
+
+    item.innerHTML = `
+      <div class="follow-user-avatar">${avatarContent}</div>
+      <div class="follow-user-info">
+        <div class="follow-user-name">${isMe ? 'Ты' : u.name}</div>
+        <div class="follow-user-meta">${u.username ? '@' + u.username + ' · ' : ''}${accuracy}% точность · ${(u.points||0).toLocaleString('ru')} очков</div>
+      </div>
+      ${!isMe ? '<div style="color:var(--accent);font-size:18px;">›</div>' : ''}
+    `;
+    list.appendChild(item);
+  });
+}
+
+function closeFollowModal(e) {
+  if (e && e.target !== document.getElementById('follow-modal-overlay')) return;
+  document.getElementById('follow-modal-overlay').classList.remove('open');
+}
+
 function showToast(msg) {
   const t = document.getElementById('toast');
   t.textContent = msg;
