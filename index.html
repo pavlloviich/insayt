@@ -1875,14 +1875,12 @@ async function loadProfile() {
   const betterThan = total > 1 ? Math.round((worse / (total - 1)) * 100) : 0;
   document.getElementById('stat-better').textContent = betterThan + '%';
 
-  // Загружаем вопросы пользователя
-  const { data: myQ } = await db
-    .from('questions')
-    .select('*')
-    .eq('author_id', currentUser.id)
-    .order('created_at', { ascending: false });
-
-  if (myQ && myQ.length > 0) renderMyQuestions(myQ);
+  // Загружаем вопросы пользователя через api/questions (источник правды)
+  try {
+    const myQRes = await fetch('https://insayt.vercel.app/api/questions?author_id=' + currentUser.id);
+    const myQData = await myQRes.json();
+    if (myQData.ok) renderMyQuestions(myQData.questions || []);
+  } catch(e) { console.error('loadProfile myQ error:', e); }
 }
 
 function renderMyQuestions(questions) {
@@ -1904,24 +1902,30 @@ function renderMyQuestions(questions) {
   }
 
   questions.forEach(q => {
-    const total = q.votes_yes + q.votes_no;
-    const pctYes = total > 0 ? Math.round(q.votes_yes / total * 100) : 50;
+    const total = q.total_votes || 0;
+    const pctYes = total > 0 ? Math.round((q.votes_yes || 0) / total * 100) : 50;
+    const statusLabel = q.status === 'active' ? 'Активен'
+      : q.status === 'awaiting' ? '⏳ Ожидает итога'
+      : q.status === 'resolved_yes' ? '✅ Сбылось'
+      : '❌ Не сбылось';
+    const statusColor = q.status === 'active' || q.status === 'awaiting' ? 'var(--accent)'
+      : q.status === 'resolved_yes' ? 'var(--green)' : 'var(--red)';
     const item = document.createElement('div');
-    item.style.cssText = 'background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:16px; box-shadow:var(--shadow);';
-    item.innerHTML = `
-      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
-        <div style="font-size:10px; font-weight:700; padding:3px 8px; border-radius:6px; background:rgba(61,90,241,0.1); color:var(--accent);">${q.topic}</div>
-        <div style="font-size:11px; color:var(--text2);">👥 ${total.toLocaleString('ru')} голосов</div>
-      </div>
-      <div style="font-size:14px; font-weight:700; color:var(--text); margin-bottom:10px; line-height:1.4;">${q.text}</div>
-      <div style="display:flex; justify-content:space-between; align-items:center;">
-        <div style="font-size:12px; color:var(--text2); font-weight:600;">ДА ${pctYes}% · НЕТ ${100-pctYes}%</div>
-        <div style="font-size:11px; color:var(--accent); background:rgba(61,90,241,0.08); padding:4px 10px; border-radius:8px;">Активен</div>
-      </div>
-    `;
+    item.style.cssText = 'background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:16px; box-shadow:var(--shadow); margin-bottom:10px;';
+    item.innerHTML =
+      '<div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">' +
+        '<div style="font-size:10px; font-weight:700; padding:3px 8px; border-radius:6px; background:rgba(61,90,241,0.1); color:var(--accent);">' + q.topic + '</div>' +
+        '<div style="font-size:11px; color:var(--text2);">👥 ' + total.toLocaleString('ru') + ' голосов</div>' +
+      '</div>' +
+      '<div style="font-size:14px; font-weight:700; color:var(--text); margin-bottom:10px; line-height:1.4;">' + q.text + '</div>' +
+      '<div style="display:flex; justify-content:space-between; align-items:center;">' +
+        '<div style="font-size:12px; color:var(--text2); font-weight:600;">ДА ' + pctYes + '% · НЕТ ' + (100-pctYes) + '%</div>' +
+        '<div style="font-size:11px; color:' + statusColor + '; background:rgba(61,90,241,0.08); padding:4px 10px; border-radius:8px;">' + statusLabel + '</div>' +
+      '</div>';
     list.appendChild(item);
   });
 }
+
 
 // Загружаем реальный рейтинг пользователя
 async function loadUserRank() {
@@ -2110,9 +2114,8 @@ async function loadVotesAndComments(data) {
       const card = document.getElementById('q-' + id);
       if (!card) return;
       const footer = card.querySelector('.q-card-footer-bar span');
-      if (footer) {
-        const count = countMap[id] || 0;
-        footer.innerHTML = footer.innerHTML.replace(/💬 \d+/, '💬 ' + count);
+      if (footer && countMap[id]) {
+        footer.innerHTML = footer.innerHTML.replace(/💬 \d+/, '💬 ' + (countMap[id] || 0));
       }
     });
   }
@@ -2257,19 +2260,8 @@ function renderQuestions(questions) {
       else if (delta < 0) deltaHtml = '<span class="delta-badge delta-dn">↓ ' + delta + '% за ' + period + '</span>';
     }
 
-    const nowMs = Date.now();
-    const isExpired = !isResolved && q.closes_at && new Date(q.closes_at).getTime() < nowMs;
-    let liveOrResolved, footerDate;
-    if (isResolved) {
-      liveOrResolved = '🏁 Завершён';
-      footerDate = '✓ Завершён';
-    } else if (isExpired) {
-      liveOrResolved = '<span style="font-size:11px;font-weight:700;color:var(--red);background:rgba(240,84,84,0.1);padding:2px 8px;border-radius:10px;">⏳ Ожидает итога</span>';
-      footerDate = '📅 ' + new Date(q.closes_at).toLocaleDateString('ru');
-    } else {
-      liveOrResolved = '<span class="live-dot"></span><span style="font-size:12px;color:var(--text2);">' + total + ' голосов</span>';
-      footerDate = '📅 ' + (q.closes_at ? new Date(q.closes_at).toLocaleDateString('ru') : 'Открыт');
-    }
+    const liveOrResolved = isResolved ? '🏁 Завершён' : '<span class="live-dot"></span><span style="font-size:12px;color:var(--text2);">' + total + ' голосов</span>';
+    const footerDate = isResolved ? '✓ Завершён' : '📅 ' + (q.closes_at ? new Date(q.closes_at).toLocaleDateString('ru') : 'Открыт');
 
     card.innerHTML =
       '<div class="q-card-accent"></div>' +
@@ -2332,14 +2324,8 @@ async function voteQuestion(questionId, choice, btn) {
 
     const data = await res.json();
 
-    if (res.status === 429 || data.error === 'rate_limited') {
-      showToast('⏳ Подожди секунду...');
-      btn.disabled = false;
-      return;
-    }
     if (!res.ok || !data.ok) {
-      if (data.error === 'invalid_auth') showToast('Открой через Telegram!');
-      else showToast('Ошибка: ' + (data.error || 'Не удалось проголосовать'));
+      showToast('Ошибка: ' + (data.error || 'Не удалось проголосовать'));
       btn.disabled = false;
       return;
     }
@@ -2753,18 +2739,13 @@ async function openQuestionDetail(questionId) {
 
   let q = null;
   try {
-    const res = await fetch('https://insayt.vercel.app/api/feed', { cache: 'no-store' });
+    const res = await fetch('https://insayt.vercel.app/api/questions?id=' + questionId);
     const payload = await res.json();
-    if (res.ok && payload.ok && Array.isArray(payload.questions)) {
-      q = payload.questions.find(item => item.id === questionId) || null;
+    if (res.ok && payload.ok && payload.questions && payload.questions.length > 0) {
+      q = payload.questions[0];
     }
   } catch (e) {
-    console.error('openQuestionDetail feed error:', e);
-  }
-
-  if (!q && db) {
-    const fallback = await db.from('questions').select('*').eq('id', questionId).single();
-    q = fallback.data || null;
+    console.error('openQuestionDetail error:', e);
   }
   if (!q) return;
   _qdQuestion = q;
@@ -2986,35 +2967,28 @@ function cancelReply() {
 }
 
 async function submitComment() {
-  if (!window.Telegram?.WebApp?.initData) { showToast('Открой через Telegram!'); return; }
+  if (!currentUser.id || !db) { showToast('Открой через Telegram!'); return; }
   const text = document.getElementById('comment-textarea').value.trim();
   if (!text) return;
-  if (text.length > 500) { showToast('⚠️ Максимум 500 символов'); return; }
+
   const btn = document.querySelector('.comment-send-btn');
-  if (btn) btn.disabled = true;
-  try {
-    const res = await fetch('https://insayt.vercel.app/api/comment', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        initData: window.Telegram.WebApp.initData,
-        question_id: _qdQuestionId,
-        text,
-        parent_id: _qdReplyToId || null
-      })
-    });
-    const data = await res.json();
-    if (res.status === 429) { showToast('⏳ ' + (data.message || 'Лимит комментариев')); return; }
-    if (!data.ok) { showToast('❌ ' + (data.error || 'Ошибка')); return; }
-    document.getElementById('comment-textarea').value = '';
-    document.getElementById('comment-textarea').style.height = 'auto';
-    cancelReply();
-    await loadComments();
-  } catch(e) {
-    showToast('❌ Ошибка сети');
-  } finally {
-    if (btn) btn.disabled = false;
-  }
+  btn.disabled = true;
+
+  const { error } = await db.from('comments').insert({
+    question_id: _qdQuestionId,
+    user_id: currentUser.id,
+    parent_id: _qdReplyToId || null,
+    text
+  });
+
+  btn.disabled = false;
+
+  if (error) { showToast('❌ Ошибка: ' + error.message); return; }
+
+  document.getElementById('comment-textarea').value = '';
+  document.getElementById('comment-textarea').style.height = 'auto';
+  cancelReply();
+  await loadComments();
 }
 
 // ============ USER PROFILE (чужой профиль) ============
@@ -3075,9 +3049,12 @@ async function openUserProfile(userId) {
     updateFollowBtn();
   }
 
-  // Вопросы пользователя
-  const { data: questions } = await db.from('questions').select('*').eq('author_id', userId).order('created_at', {ascending: false});
-  renderUpoQuestions(questions || []);
+  // Вопросы пользователя через api/questions (источник правды)
+  try {
+    const upoQRes = await fetch('https://insayt.vercel.app/api/questions?author_id=' + userId);
+    const upoQData = await upoQRes.json();
+    renderUpoQuestions(upoQData.ok ? (upoQData.questions || []) : []);
+  } catch(e) { renderUpoQuestions([]); }
 }
 
 function closeUserProfile() {
@@ -3130,29 +3107,31 @@ function switchUpoTab(name, btn) {
 
 function renderUpoQuestions(questions) {
   const list = document.getElementById('upo-questions-list');
-  if (!questions.length) {
-    list.innerHTML = `<div style="text-align:center;padding:40px 20px;background:var(--surface);border:1.5px dashed var(--border);border-radius:20px;"><div style="font-size:40px;margin-bottom:12px;">📋</div><div style="font-size:15px;font-weight:700;">Нет вопросов</div></div>`;
+  if (!list) return;
+  if (!questions || !questions.length) {
+    list.innerHTML = '<div style="text-align:center;padding:40px 20px;background:var(--surface);border:1.5px dashed var(--border);border-radius:20px;"><div style="font-size:40px;margin-bottom:12px;">📋</div><div style="font-size:15px;font-weight:700;">Нет вопросов</div></div>';
     return;
   }
   list.innerHTML = '';
   questions.forEach(q => {
-    const total = q.votes_yes + q.votes_no;
-    const pct = total > 0 ? Math.round(q.votes_yes / total * 100) : 50;
+    const total = q.total_votes || 0;
+    const pctYes = total > 0 ? Math.round((q.votes_yes || 0) / total * 100) : 50;
+    const statusLabel = q.status === 'active' ? 'Активен'
+      : q.status === 'awaiting' ? '⏳ Ожидает итога'
+      : q.status === 'resolved_yes' ? '✅ Сбылось' : '❌ Не сбылось';
     const item = document.createElement('div');
-    item.style.cssText = 'background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:14px 16px;margin-bottom:10px;box-shadow:var(--shadow);';
-    item.innerHTML = `
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
-        <div style="font-size:10px;font-weight:700;color:var(--accent);background:rgba(61,90,241,0.08);padding:3px 8px;border-radius:6px;">${q.topic}</div>
-        <div style="font-size:11px;color:var(--text2);">👥 ${total}</div>
-      </div>
-      <div style="font-size:14px;font-weight:700;line-height:1.4;margin-bottom:10px;">${q.text}</div>
-      <div style="height:4px;background:var(--surface2);border-radius:4px;overflow:hidden;margin-bottom:5px;">
-        <div style="height:100%;width:${pct}%;background:var(--accent);border-radius:4px;"></div>
-      </div>
-      <div style="display:flex;justify-content:space-between;font-size:11px;font-weight:700;">
-        <span style="color:var(--green)">ДА ${pct}%</span>
-        <span style="color:var(--red)">НЕТ ${100-pct}%</span>
-      </div>`;
+    item.style.cssText = 'background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:16px;margin-bottom:10px;box-shadow:var(--shadow);cursor:pointer;';
+    item.onclick = function() { openQuestionDetail(q.id); };
+    item.innerHTML =
+      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">' +
+        '<div style="font-size:10px;font-weight:700;padding:3px 8px;border-radius:6px;background:rgba(61,90,241,0.1);color:var(--accent);">' + q.topic + '</div>' +
+        '<div style="font-size:11px;color:var(--text2);">👥 ' + total.toLocaleString('ru') + '</div>' +
+      '</div>' +
+      '<div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:10px;line-height:1.4;">' + q.text + '</div>' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;">' +
+        '<div style="font-size:12px;color:var(--text2);font-weight:600;">ДА ' + pctYes + '% · НЕТ ' + (100-pctYes) + '%</div>' +
+        '<div style="font-size:11px;color:var(--accent);background:rgba(61,90,241,0.08);padding:4px 10px;border-radius:8px;">' + statusLabel + '</div>' +
+      '</div>';
     list.appendChild(item);
   });
 }
@@ -3505,12 +3484,8 @@ function filterTopic(el) {
   var allChips = document.querySelectorAll('.topic-chip');
   var chips = Array.from(allChips);
   var activeCount = chips.filter(function(c) { return c.classList.contains('active'); }).length;
-
-  // Последний активный — не снимаем
   if (el.classList.contains('active') && activeCount === 1) return;
-
   el.classList.toggle('active');
-
   applyTopicFilter();
 }
 
