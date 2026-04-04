@@ -213,6 +213,11 @@
     box-shadow: var(--shadow);
     transition: transform 0.15s;
   }
+  .q-card.voting {
+    opacity: 0.6;
+    pointer-events: none;
+    transition: opacity 0.15s;
+  }
   .q-card:active { transform: scale(0.98); }
   .q-card-accent { height: 3px; background: var(--accent); }
   .q-card-body { padding: 16px 16px 12px; }
@@ -1772,7 +1777,7 @@
 </div>
 
 <script>
-const APP_VERSION = '1.5.0';
+const APP_VERSION = '1.6.0';
 
 // TELEGRAM WEBAPP INIT
 const tg = window.Telegram?.WebApp;
@@ -2356,6 +2361,7 @@ function renderQuestions(questions) {
 
 // Голосуем за вопрос через защищённый backend
 async function voteQuestion(questionId, choice, btn) {
+  // Защита: только через Telegram
   if (!window.Telegram || !window.Telegram.WebApp || !window.Telegram.WebApp.initData) {
     showToast('Открой через Telegram!'); return;
   }
@@ -2367,31 +2373,12 @@ async function voteQuestion(questionId, choice, btn) {
   if (_isVoting[questionId]) return;
   _isVoting[questionId] = true;
 
-  // Блокируем обе кнопки
+  // Блокируем карточку и обе кнопки — БЕЗ изменения цифр
+  card.classList.add('voting');
   var btnYes = card.querySelector('.btn-yes');
   var btnNo = card.querySelector('.btn-no');
-  if (btnYes) { btnYes.disabled = true; btnYes.style.opacity = '0.6'; }
-  if (btnNo) { btnNo.disabled = true; btnNo.style.opacity = '0.6'; }
-
-  // Оптимистичный UI — сразу обновляем счётчики
-  var bigYes = card.querySelector('[data-pct="yes"]');
-  var bigNo = card.querySelector('[data-pct="no"]');
-  var barEl = card.querySelector('[data-bar="yes"]');
-  var prevYesText = bigYes ? bigYes.textContent : null;
-  var prevNoText = bigNo ? bigNo.textContent : null;
-  var prevBarWidth = barEl ? barEl.style.width : null;
-
-  var prevYesPct = prevYesText ? parseInt(prevYesText) : 50;
-  var fakeTotalBase = 10; // предполагаемая база для расчёта
-  var fakeTotal = fakeTotalBase + 1;
-  var fakeYesPct = choice === 'yes'
-    ? Math.round((prevYesPct / 100 * fakeTotalBase + 1) / fakeTotal * 100)
-    : Math.round((prevYesPct / 100 * fakeTotalBase) / fakeTotal * 100);
-  var fakeNoPct = 100 - fakeYesPct;
-
-  if (bigYes) bigYes.textContent = fakeYesPct + '%';
-  if (bigNo) bigNo.textContent = fakeNoPct + '%';
-  if (barEl) barEl.style.width = fakeYesPct + '%';
+  if (btnYes) btnYes.disabled = true;
+  if (btnNo) btnNo.disabled = true;
 
   try {
     var res = await fetch('https://insayt.vercel.app/api/vote', {
@@ -2406,74 +2393,78 @@ async function voteQuestion(questionId, choice, btn) {
 
     var data = await res.json();
 
+    // Rate limit
     if (res.status === 429 || data.error === 'rate_limited') {
       showToast('⏳ Подожди секунду...');
-      // Откат оптимистичного UI
-      if (bigYes && prevYesText) bigYes.textContent = prevYesText;
-      if (bigNo && prevNoText) bigNo.textContent = prevNoText;
-      if (barEl && prevBarWidth) barEl.style.width = prevBarWidth;
-      if (btnYes) { btnYes.disabled = false; btnYes.style.opacity = '1'; }
-      if (btnNo) { btnNo.disabled = false; btnNo.style.opacity = '1'; }
       return;
     }
 
-    if (!res.ok || !data.ok) {
-      if (data.error === 'invalid_auth') showToast('Открой через Telegram!');
-      else showToast('❌ Ошибка голосования');
-      // Откат
-      if (bigYes && prevYesText) bigYes.textContent = prevYesText;
-      if (bigNo && prevNoText) bigNo.textContent = prevNoText;
-      if (barEl && prevBarWidth) barEl.style.width = prevBarWidth;
-      if (btnYes) { btnYes.disabled = false; btnYes.style.opacity = '1'; }
-      if (btnNo) { btnNo.disabled = false; btnNo.style.opacity = '1'; }
-      return;
-    }
-
+    // Дубль
     if (data.duplicate) {
       showToast('Ты уже голосовал!');
       card.classList.add('voted');
       return;
     }
 
-    // Применяем реальные данные с сервера
-    var fresh = data.question_after || null;
-    card.classList.add('voted');
-
-    if (fresh) {
-      var total = (fresh.votes_yes || 0) + (fresh.votes_no || 0);
-      var pctYes = total > 0 ? Math.round((fresh.votes_yes || 0) / total * 100) : 50;
-      var pctNo = 100 - pctYes;
-      var myPct = choice === 'yes' ? pctYes : pctNo;
-
-      if (bigYes) bigYes.textContent = pctYes + '%';
-      if (bigNo) bigNo.textContent = pctNo + '%';
-      if (barEl) barEl.style.width = pctYes + '%';
-
-      var votesEl = card.querySelector('[data-votes]');
-      if (votesEl) votesEl.innerHTML = '<span class="live-dot"></span><span style="font-size:12px;color:var(--text2);">' + total + ' голосов</span>';
-
-      var choiceLabel = choice === 'yes' ? (fresh.option_yes || 'Да') : (fresh.option_no || 'Нет');
-      var label = myPct < 35
-        ? '⚡ Твой прогноз: ' + choiceLabel + ' — Ты против толпы!'
-        : '⏳ Твой прогноз: ' + choiceLabel;
-      var cssClass = myPct < 35 ? 'voted-result underdog' : 'voted-result pending';
-
-      var resultEl = card.querySelector('.voted-result');
-      if (resultEl) { resultEl.textContent = label; resultEl.className = cssClass; }
+    // Ошибка
+    if (!res.ok || !data.ok) {
+      if (data.error === 'invalid_auth') showToast('Открой через Telegram!');
+      else showToast('❌ Ошибка голосования');
+      return;
     }
 
+    // Успех — обновляем UI только из данных сервера
+    var fresh = data.question_after;
+    if (!fresh) {
+      console.error('voteQuestion: no question_after in response');
+      card.classList.add('voted');
+      showToast('✅ Прогноз принят!');
+      return;
+    }
+
+    var votesYes = fresh.votes_yes || 0;
+    var votesNo = fresh.votes_no || 0;
+    var total = votesYes + votesNo;
+    var pctYes = total > 0 ? Math.round(votesYes / total * 100) : 50;
+    var pctNo = 100 - pctYes;
+    var myPct = choice === 'yes' ? pctYes : pctNo;
+
+    // Обновляем проценты
+    var bigYes = card.querySelector('[data-pct="yes"]');
+    var bigNo = card.querySelector('[data-pct="no"]');
+    if (bigYes) bigYes.textContent = pctYes + '%';
+    if (bigNo) bigNo.textContent = pctNo + '%';
+
+    // Обновляем бар
+    var barEl = card.querySelector('[data-bar="yes"]');
+    if (barEl) barEl.style.width = pctYes + '%';
+
+    // Обновляем счётчик голосов
+    var votesEl = card.querySelector('[data-votes]');
+    if (votesEl) votesEl.innerHTML = '<span class="live-dot"></span><span style="font-size:12px;color:var(--text2);">' + total + ' голосов</span>';
+
+    // Показываем результат прогноза
+    var choiceLabel = choice === 'yes' ? (fresh.option_yes || 'Да') : (fresh.option_no || 'Нет');
+    var label = myPct < 35
+      ? '⚡ Твой прогноз: ' + choiceLabel + ' — Ты против толпы!'
+      : '⏳ Твой прогноз: ' + choiceLabel;
+    var cssClass = myPct < 35 ? 'voted-result underdog' : 'voted-result pending';
+    var resultEl = card.querySelector('.voted-result');
+    if (resultEl) { resultEl.textContent = label; resultEl.className = cssClass; }
+
+    card.classList.add('voted');
     showToast('✅ Прогноз принят!');
 
   } catch(e) {
     console.error('voteQuestion error:', e);
     showToast('❌ Ошибка сети');
-    // Откат
-    if (bigYes && prevYesText) bigYes.textContent = prevYesText;
-    if (bigNo && prevNoText) bigNo.textContent = prevNoText;
-    if (barEl && prevBarWidth) barEl.style.width = prevBarWidth;
-    if (btnYes) { btnYes.disabled = false; btnYes.style.opacity = '1'; }
-    if (btnNo) { btnNo.disabled = false; btnNo.style.opacity = '1'; }
   } finally {
+    // Всегда снимаем блокировку
+    card.classList.remove('voting');
+    if (!card.classList.contains('voted')) {
+      if (btnYes) btnYes.disabled = false;
+      if (btnNo) btnNo.disabled = false;
+    }
     _isVoting[questionId] = false;
   }
 }
@@ -2642,20 +2633,7 @@ function renderRating(users, total, mode = 'overall') {
 }
 
 // Сохраняем вопрос в базу
-async function saveQuestion(text, optYes, optNo, topic, closesAt) {
-  if (!currentUser.id) return null;
-  const { data, error } = await db.from('questions').insert({
-    author_id: currentUser.id,
-    text: text,
-    option_yes: optYes,
-    option_no: optNo,
-    topic: topic,
-    closes_at: closesAt || null,
-    status: 'active'
-  }).select().single();
-  if (error) { console.error('saveQuestion error:', error); return null; }
-  return data;
-}
+// saveQuestion removed
 
 // Применяем данные пользователя к интерфейсу после загрузки
 // ─── THEME SYSTEM ─────────────────────────────────────────────────────────────
