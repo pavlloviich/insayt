@@ -1777,7 +1777,7 @@
 </div>
 
 <script>
-const APP_VERSION = '1.6.0';
+const APP_VERSION = '1.7.0';
 
 // TELEGRAM WEBAPP INIT
 const tg = window.Telegram?.WebApp;
@@ -1978,6 +1978,7 @@ var _feed = [];
 var _isLoadingFeed = false;
 var _feedError = null;
 var _isVoting = {};
+var _isVotingDetail = false;
 // ─────────────────────────────────────────────────────────────────────────────
 
 function showFeedLoading() {
@@ -2360,25 +2361,112 @@ function renderQuestions(questions) {
 }
 
 // Голосуем за вопрос через защищённый backend
-async function voteQuestion(questionId, choice, btn) {
-  // Защита: только через Telegram
-  if (!window.Telegram || !window.Telegram.WebApp || !window.Telegram.WebApp.initData) {
-    showToast('Открой через Telegram!'); return;
+// ─── VOTE HELPERS ────────────────────────────────────────────────────────────
+
+// Обновляет карточку в ленте после голосования
+function updateFeedCardVoteUI(questionId, fresh, userChoice) {
+  if (!fresh) { console.error('updateFeedCardVoteUI: no fresh data'); return; }
+  var card = document.getElementById('q-' + questionId);
+  if (!card) return;
+
+  var votesYes = fresh.votes_yes || 0;
+  var votesNo  = fresh.votes_no  || 0;
+  var total    = votesYes + votesNo;
+  var pctYes   = total > 0 ? Math.round(votesYes / total * 100) : 50;
+  var pctNo    = 100 - pctYes;
+  var myPct    = userChoice === 'yes' ? pctYes : pctNo;
+
+  var bigYes = card.querySelector('[data-pct="yes"]');
+  var bigNo  = card.querySelector('[data-pct="no"]');
+  if (bigYes) bigYes.textContent = pctYes + '%';
+  if (bigNo)  bigNo.textContent  = pctNo  + '%';
+
+  var barEl = card.querySelector('[data-bar="yes"]');
+  if (barEl) barEl.style.width = pctYes + '%';
+
+  var votesEl = card.querySelector('[data-votes]');
+  if (votesEl) votesEl.innerHTML = '<span class="live-dot"></span><span style="font-size:12px;color:var(--text2);">' + total + ' \u0433\u043e\u043b\u043e\u0441\u043e\u0432</span>';
+
+  var choiceLabel = userChoice === 'yes' ? (fresh.option_yes || '\u0414\u0430') : (fresh.option_no || '\u041d\u0435\u0442');
+  var label, cssClass;
+  if (myPct < 35) {
+    label    = '\u26a1 \u0422\u0432\u043e\u0439 \u043f\u0440\u043e\u0433\u043d\u043e\u0437: ' + choiceLabel + ' \u2014 \u0422\u044b \u043f\u0440\u043e\u0442\u0438\u0432 \u0442\u043e\u043b\u043f\u044b!';
+    cssClass = 'voted-result underdog';
+  } else {
+    label    = '\u23f3 \u0422\u0432\u043e\u0439 \u043f\u0440\u043e\u0433\u043d\u043e\u0437: ' + choiceLabel;
+    cssClass = 'voted-result pending';
+  }
+  var resultEl = card.querySelector('.voted-result');
+  if (resultEl) { resultEl.textContent = label; resultEl.className = cssClass; }
+
+  card.classList.add('voted');
+}
+
+// Обновляет детальный экран после голосования
+function updateDetailVoteUI(fresh, userChoice) {
+  if (!fresh) { console.error('updateDetailVoteUI: no fresh data'); return; }
+  _qdQuestion = fresh;
+
+  var votesYes = fresh.votes_yes || 0;
+  var votesNo  = fresh.votes_no  || 0;
+  var total    = votesYes + votesNo;
+  var pctYes   = total > 0 ? Math.round(votesYes / total * 100) : 50;
+  var pctNo    = 100 - pctYes;
+  var myPct    = userChoice === 'yes' ? pctYes : pctNo;
+  var choiceLabel = userChoice === 'yes' ? (fresh.option_yes || '\u0414\u0430') : (fresh.option_no || '\u041d\u0435\u0442');
+
+  // Обновляем счётчик в шапке детального экрана
+  var qdVotes = document.getElementById('qd-votes-count');
+  if (qdVotes) qdVotes.textContent = '\U0001f465 ' + total;
+
+  // Перерисовываем блок qd-card с реальными данными
+  var qdCard = document.getElementById('qd-card');
+  if (!qdCard) return;
+
+  var barHtml = '<div style="height:6px;background:var(--surface2);border-radius:6px;margin-bottom:8px;overflow:hidden;">'
+    + '<div style="height:100%;width:' + pctYes + '%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:6px;"></div>'
+    + '</div>';
+
+  var label, cssClass;
+  if (myPct < 35) {
+    label    = '\u26a1 \u0422\u0432\u043e\u0439 \u043f\u0440\u043e\u0433\u043d\u043e\u0437: ' + choiceLabel + ' \u2014 \u0422\u044b \u043f\u0440\u043e\u0442\u0438\u0432 \u0442\u043e\u043b\u043f\u044b!';
+    cssClass = 'voted-result underdog';
+  } else {
+    label    = '\u23f3 \u0422\u0432\u043e\u0439 \u043f\u0440\u043e\u0433\u043d\u043e\u0437: ' + choiceLabel;
+    cssClass = 'voted-result pending';
   }
 
+  // Сохраняем текст вопроса, обновляем бар и проценты, убираем кнопки
+  qdCard.innerHTML =
+    '<div style="font-size:18px;font-weight:800;line-height:1.4;margin-bottom:16px;">' + fresh.text + '</div>'
+    + '<div style="height:6px;background:var(--surface2);border-radius:6px;margin-bottom:8px;overflow:hidden;">'
+      + '<div style="height:100%;width:' + pctYes + '%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:6px;"></div>'
+    + '</div>'
+    + '<div style="display:flex;justify-content:space-between;margin-bottom:14px;font-size:12px;font-weight:700;">'
+      + '<span style="color:var(--green);">\u2713 ' + fresh.option_yes + ' \u2014 ' + pctYes + '%</span>'
+      + '<span style="color:var(--red);">\u2717 ' + fresh.option_no + ' \u2014 ' + pctNo + '%</span>'
+    + '</div>'
+    + '<div style="text-align:center;padding:12px 16px;border-radius:12px;background:rgba(61,90,241,0.07);font-size:13px;font-weight:700;color:var(--accent2);">'
+      + label
+    + '</div>';
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function voteQuestion(questionId, choice, btn) {
+  if (!window.Telegram || !window.Telegram.WebApp || !window.Telegram.WebApp.initData) {
+    showToast('\u041e\u0442\u043a\u0440\u043e\u0439 \u0447\u0435\u0440\u0435\u0437 Telegram!'); return;
+  }
   var card = document.getElementById('q-' + questionId);
   if (!card || card.classList.contains('voted')) return;
-
-  // Защита от двойного голосования
   if (_isVoting[questionId]) return;
   _isVoting[questionId] = true;
 
-  // Блокируем карточку и обе кнопки — БЕЗ изменения цифр
   card.classList.add('voting');
   var btnYes = card.querySelector('.btn-yes');
-  var btnNo = card.querySelector('.btn-no');
+  var btnNo  = card.querySelector('.btn-no');
   if (btnYes) btnYes.disabled = true;
-  if (btnNo) btnNo.disabled = true;
+  if (btnNo)  btnNo.disabled  = true;
 
   try {
     var res = await fetch('https://insayt.vercel.app/api/vote', {
@@ -2390,493 +2478,71 @@ async function voteQuestion(questionId, choice, btn) {
         vote: choice
       })
     });
-
     var data = await res.json();
 
-    // Rate limit
     if (res.status === 429 || data.error === 'rate_limited') {
-      showToast('⏳ Подожди секунду...');
+      showToast('\u23f3 \u041f\u043e\u0434\u043e\u0436\u0434\u0438 \u0441\u0435\u043a\u0443\u043d\u0434\u0443...');
       return;
     }
 
-    // Дубль
     if (data.duplicate) {
-      showToast('Ты уже голосовал!');
-      card.classList.add('voted');
+      showToast('\u0422\u044b \u0443\u0436\u0435 \u0433\u043e\u043b\u043e\u0441\u043e\u0432\u0430\u043b!');
+      // Обновляем UI если есть данные — иначе просто помечаем voted
+      if (data.question_after) {
+        updateFeedCardVoteUI(questionId, data.question_after, choice);
+      } else {
+        card.classList.add('voted');
+      }
       return;
     }
 
-    // Ошибка
     if (!res.ok || !data.ok) {
-      if (data.error === 'invalid_auth') showToast('Открой через Telegram!');
-      else showToast('❌ Ошибка голосования');
+      if (data.error === 'invalid_auth') showToast('\u041e\u0442\u043a\u0440\u043e\u0439 \u0447\u0435\u0440\u0435\u0437 Telegram!');
+      else showToast('\u274c \u041e\u0448\u0438\u0431\u043a\u0430 \u0433\u043e\u043b\u043e\u0441\u043e\u0432\u0430\u043d\u0438\u044f');
       return;
     }
 
-    // Успех — обновляем UI только из данных сервера
-    var fresh = data.question_after;
-    if (!fresh) {
-      console.error('voteQuestion: no question_after in response');
+    if (!data.question_after) {
+      console.error('voteQuestion: no question_after');
       card.classList.add('voted');
-      showToast('✅ Прогноз принят!');
+      showToast('\u2705 \u041f\u0440\u043e\u0433\u043d\u043e\u0437 \u043f\u0440\u0438\u043d\u044f\u0442!');
       return;
     }
 
-    var votesYes = fresh.votes_yes || 0;
-    var votesNo = fresh.votes_no || 0;
-    var total = votesYes + votesNo;
-    var pctYes = total > 0 ? Math.round(votesYes / total * 100) : 50;
-    var pctNo = 100 - pctYes;
-    var myPct = choice === 'yes' ? pctYes : pctNo;
-
-    // Обновляем проценты
-    var bigYes = card.querySelector('[data-pct="yes"]');
-    var bigNo = card.querySelector('[data-pct="no"]');
-    if (bigYes) bigYes.textContent = pctYes + '%';
-    if (bigNo) bigNo.textContent = pctNo + '%';
-
-    // Обновляем бар
-    var barEl = card.querySelector('[data-bar="yes"]');
-    if (barEl) barEl.style.width = pctYes + '%';
-
-    // Обновляем счётчик голосов
-    var votesEl = card.querySelector('[data-votes]');
-    if (votesEl) votesEl.innerHTML = '<span class="live-dot"></span><span style="font-size:12px;color:var(--text2);">' + total + ' голосов</span>';
-
-    // Показываем результат прогноза
-    var choiceLabel = choice === 'yes' ? (fresh.option_yes || 'Да') : (fresh.option_no || 'Нет');
-    var label = myPct < 35
-      ? '⚡ Твой прогноз: ' + choiceLabel + ' — Ты против толпы!'
-      : '⏳ Твой прогноз: ' + choiceLabel;
-    var cssClass = myPct < 35 ? 'voted-result underdog' : 'voted-result pending';
-    var resultEl = card.querySelector('.voted-result');
-    if (resultEl) { resultEl.textContent = label; resultEl.className = cssClass; }
-
-    card.classList.add('voted');
-    showToast('✅ Прогноз принят!');
+    updateFeedCardVoteUI(questionId, data.question_after, choice);
+    showToast('\u2705 \u041f\u0440\u043e\u0433\u043d\u043e\u0437 \u043f\u0440\u0438\u043d\u044f\u0442!');
 
   } catch(e) {
     console.error('voteQuestion error:', e);
-    showToast('❌ Ошибка сети');
+    showToast('\u274c \u041e\u0448\u0438\u0431\u043a\u0430 \u0441\u0435\u0442\u0438');
   } finally {
-    // Всегда снимаем блокировку
     card.classList.remove('voting');
     if (!card.classList.contains('voted')) {
       if (btnYes) btnYes.disabled = false;
-      if (btnNo) btnNo.disabled = false;
+      if (btnNo)  btnNo.disabled  = false;
     }
     _isVoting[questionId] = false;
   }
 }
 
-
-
-// Загружаем рейтинг
-// Текущая активная вкладка рейтинга
-let _ratingTopic = 'overall';
-
-function switchRatingTab(el) {
-  document.querySelectorAll('.rating-tab').forEach(t => t.classList.remove('active'));
-  el.classList.add('active');
-  _ratingTopic = el.getAttribute('data-topic');
-  loadRating();
-}
-
-async function loadRating() {
-  if (!db) return;
-  const list = document.getElementById('rating-list');
-  list.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text2);">Загрузка...</div>';
-
-  if (_ratingTopic === 'overall') {
-    // Общий рейтинг — по очкам
-    const { data, count } = await db
-      .from('users')
-      .select('id, name, username, photo_url, points, correct, total', { count: 'exact' })
-      .order('points', { ascending: false })
-      .limit(100);
-    if (data) renderRating(data, count || data.length, 'overall');
-  } else {
-    // Тематический рейтинг — по точности в теме
-    await loadTopicRating(_ratingTopic);
-  }
-}
-
-async function loadTopicRating(topic) {
-  // Берём голоса только по вопросам нужной темы
-  const { data: votes } = await db
-    .from('votes')
-    .select('user_id, choice, questions!inner(topic, status, id)')
-    .ilike('questions.topic', `%${topic}%`)
-    .in('questions.status', ['resolved_yes', 'resolved_no']);
-
-  if (!votes || votes.length === 0) {
-    const list = document.getElementById('rating-list');
-    list.innerHTML = `<div style="text-align:center;padding:40px;color:var(--text2);">
-      <div style="font-size:40px;margin-bottom:12px;">🔍</div>
-      <div style="font-size:15px;font-weight:700;margin-bottom:6px;">Нет данных</div>
-      <div style="font-size:13px;">По теме «${topic}» ещё нет завершённых вопросов</div>
-    </div>`;
-    const subtitle = document.getElementById('rating-subtitle');
-    if (subtitle) subtitle.textContent = `Тема: ${topic} — нет завершённых вопросов`;
-    return;
-  }
-
-  // Считаем статистику по каждому пользователю
-  const stats = {};
-  votes.forEach(v => {
-    const uid = v.user_id;
-    if (!stats[uid]) stats[uid] = { correct: 0, total: 0 };
-    stats[uid].total++;
-    const q = v.questions;
-    const won = (q.status === 'resolved_yes' && v.choice === 'yes') ||
-                (q.status === 'resolved_no' && v.choice === 'no');
-    if (won) stats[uid].correct++;
-  });
-
-  // Загружаем имена пользователей
-  const userIds = Object.keys(stats);
-  const { data: users } = await db
-    .from('users')
-    .select('id, name, username, photo_url, points')
-    .in('id', userIds);
-
-  if (!users) return;
-
-  // Собираем и сортируем по точности (мин. 2 прогноза)
-  const ranked = users
-    .map(u => ({
-      ...u,
-      topicCorrect: stats[u.id]?.correct || 0,
-      topicTotal: stats[u.id]?.total || 0,
-      topicAccuracy: stats[u.id]?.total >= 2
-        ? Math.round(stats[u.id].correct / stats[u.id].total * 100)
-        : 0
-    }))
-    .filter(u => u.topicTotal >= 1)
-    .sort((a, b) => b.topicAccuracy - a.topicAccuracy || b.topicTotal - a.topicTotal);
-
-  renderRating(ranked, ranked.length, topic);
-}
-
-function renderRating(users, total, mode = 'overall') {
-  const list = document.getElementById('rating-list');
-  const subtitle = document.getElementById('rating-subtitle');
-  if (!list) return;
-
-  const isTopic = mode !== 'overall';
-  const topicEmoji = { 'Политика': '🏛', 'Крипта': '₿', 'Технологии': '💻', 'Экономика': '💰' };
-
-  if (subtitle) {
-    subtitle.textContent = isTopic
-      ? `${topicEmoji[mode] || ''} ${mode} — топ по точности прогнозов`
-      : `${total.toLocaleString('ru')} участников • по очкам`;
-  }
-
-  const medals = ['🥇','🥈','🥉'];
-  const emojis = ['🦁','🐺','🦊','🐻','🦅','🦋','🐯','🦄','🐉','🦩'];
-  list.innerHTML = '';
-
-  const topUsers = users.slice(0, 10);
-  topUsers.forEach((u, i) => {
-    const accuracy = isTopic ? u.topicAccuracy : (u.total > 0 ? Math.round(u.correct / u.total * 100) : 0);
-    const votes = isTopic ? u.topicTotal : u.total;
-    const isMe = u.id === currentUser.id;
-
-    const item = document.createElement('div');
-    item.className = 'rating-item' + (isMe ? ' me' : '');
-
-    const avatarContent = u.photo_url
-      ? `<img loading="lazy" src="${u.photo_url}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">`
-      : (isMe ? '😎' : emojis[i % emojis.length]);
-
-    item.innerHTML = `
-      <div class="rank ${i===0?'gold':i===1?'silver':i===2?'bronze':''}">${i < 3 ? medals[i] : i+1}</div>
-      <div class="avatar" style="${isMe ? 'background:linear-gradient(135deg,var(--accent),var(--green))' : ''}">${avatarContent}</div>
-      <div class="rating-info">
-        <div class="rating-name">${isMe ? 'Ты' : u.name}</div>
-        <div class="rating-stats">${accuracy}% точность • ${votes} прогнозов</div>
-      </div>
-      <div class="rating-points" style="${isTopic ? 'font-size:16px;' : ''}">${isTopic ? accuracy + '%' : u.points.toLocaleString('ru')}</div>
-    `;
-    if (!isMe) { item.style.cursor = 'pointer'; item.onclick = () => openUserProfile(u.id); }
-    list.appendChild(item);
-  });
-
-  // Показываем себя если не в топ-10
-  const meInTop = topUsers.some(u => u.id === currentUser.id);
-  if (!meInTop && currentUser.id) {
-    const meData = users.find(u => u.id === currentUser.id);
-    if (meData) {
-      const divider = document.createElement('div');
-      divider.style.cssText = 'text-align:center;padding:10px;color:var(--text2);font-size:12px;';
-      divider.textContent = '• • •';
-      list.appendChild(divider);
-
-      const myRank = users.findIndex(u => u.id === currentUser.id) + 1;
-      const accuracy = isTopic ? meData.topicAccuracy : (meData.total > 0 ? Math.round(meData.correct / meData.total * 100) : 0);
-      const votes = isTopic ? meData.topicTotal : meData.total;
-
-      const meItem = document.createElement('div');
-      meItem.className = 'rating-item me';
-      meItem.innerHTML = `
-        <div class="rank" style="color:var(--accent)">${myRank}</div>
-        <div class="avatar" style="background:linear-gradient(135deg,var(--accent),var(--green))">😎</div>
-        <div class="rating-info">
-          <div class="rating-name">Ты</div>
-          <div class="rating-stats">${accuracy}% точность • ${votes} прогнозов</div>
-        </div>
-        <div class="rating-points">${isTopic ? accuracy + '%' : meData.points.toLocaleString('ru')}</div>
-      `;
-      list.appendChild(meItem);
-    }
-  }
-}
-
-// Сохраняем вопрос в базу
-// saveQuestion removed
-
-// Применяем данные пользователя к интерфейсу после загрузки
-// ─── THEME SYSTEM ─────────────────────────────────────────────────────────────
-function initTheme() {
-  let saved = null;
-  try { saved = localStorage.getItem('insayt_theme'); } catch(e) {}
-  if (saved === 'dark' || saved === 'light') {
-    applyTheme(saved);
-  } else {
-    // Детектируем системную тему
-    const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-    applyTheme(prefersDark ? 'dark' : 'light');
-  }
-  // Слушаем изменение системной темы
-  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
-    let saved = null;
-    try { saved = localStorage.getItem('insayt_theme'); } catch(err) {}
-    if (!saved) applyTheme(e.matches ? 'dark' : 'light');
-  });
-}
-
-function applyTheme(theme) {
-  if (theme === 'dark') {
-    document.body.classList.add('theme-dark');
-  } else {
-    document.body.classList.remove('theme-dark');
-  }
-  const icon = document.getElementById('theme-icon');
-  const label = document.getElementById('theme-label');
-  if (icon) icon.textContent = theme === 'dark' ? '🌙' : '☀️';
-  if (label) label.textContent = theme === 'dark' ? 'Тёмная' : 'Светлая';
-}
-
-function toggleTheme() {
-  const isDark = document.body.classList.contains('theme-dark');
-  const next = isDark ? 'light' : 'dark';
-  try { localStorage.setItem('insayt_theme', next); } catch(e) {}
-  applyTheme(next);
-}
-
-// Применяем тему сразу — до DOMContentLoaded чтобы не было мигания
-initTheme();
-// ─────────────────────────────────────────────────────────────────────────────
-
-window.addEventListener('DOMContentLoaded', async () => {
-  // Показываем версию приложения
-  const versionEl = document.getElementById('app-version');
-  if (versionEl) versionEl.textContent = 'v' + APP_VERSION;
-
-  // Сброс онбординга по параметру URL (для тестирования)
-  const urlParams = new URLSearchParams(window.location.search);
-  if (urlParams.get('reset_ob') === '1') {
-    try { localStorage.removeItem('insayt_onboarding_done'); } catch(e) {}
-    try { localStorage.removeItem('insayt_ob_' + (currentUser.id || 'guest')); } catch(e) {}
-    try { sessionStorage.removeItem('insayt_ob'); } catch(e) {}
-    try { document.cookie = 'insayt_ob=; max-age=0; path=/'; } catch(e) {}
-  }
-  const nameEl = document.getElementById('profile-name');
-  if (nameEl) nameEl.textContent = currentUser.name || 'Пользователь';
-  const avatarEl = document.getElementById('profile-avatar');
-  if (avatarEl && currentUser.photo) {
-    avatarEl.innerHTML = `<img loading="lazy" src="${currentUser.photo}" style="width:100%; height:100%; border-radius:50%; object-fit:cover;">`;
-  }
-  const rankEl = document.getElementById('profile-rank-text');
-  if (rankEl && currentUser.username) {
-    rankEl.textContent = `@${currentUser.username} • Загрузка рейтинга...`;
-  }
-
-  // Запускаем данные параллельно сразу
-  Promise.all([syncUser(), loadQuestions(), loadUserRank()]);
-  loadProfile();
-
-  // Онбординг — показываем ПОСЛЕ небольшой задержки чтобы лента успела начать грузиться
-  // Но только если нет кэша — иначе мгновенно
-  const ob = document.getElementById('onboarding');
-  if (ob && currentUser.id) {
-    const key = 'insayt_ob_' + currentUser.id;
-    let cachedDone = false;
-    try { if (localStorage.getItem(key) || localStorage.getItem('insayt_onboarding_done')) cachedDone = true; } catch(e) {}
-    try { if (sessionStorage.getItem('insayt_ob')) cachedDone = true; } catch(e) {}
-    if (document.cookie.includes('insayt_ob=1')) cachedDone = true;
-    if (!cachedDone) ob.classList.add('show');
-  }
-});
-
-// ============ FOLLOW LIST MODAL ============
-
-async function showMyFollowList(type) {
-  await openFollowModal(type, currentUser.id);
-}
-
-async function showFollowList(type) {
-  await openFollowModal(type, _upoUserId || currentUser.id);
-}
-
-async function openFollowModal(type, userId) {
-  if (!db || !userId) return;
-
-  const overlay = document.getElementById('follow-modal-overlay');
-  const title = document.getElementById('follow-modal-title');
-  const list = document.getElementById('follow-modal-list');
-
-  title.textContent = type === 'following' ? 'Подписки' : 'Подписчики';
-  list.innerHTML = '<div style="text-align:center;padding:30px;color:var(--text2);">Загрузка...</div>';
-  overlay.classList.add('open');
-
-  let userIds = [];
-  if (type === 'following') {
-    const { data } = await db.from('follows').select('following_id').eq('follower_id', userId);
-    userIds = (data || []).map(r => r.following_id);
-  } else {
-    const { data } = await db.from('follows').select('follower_id').eq('following_id', userId);
-    userIds = (data || []).map(r => r.follower_id);
-  }
-
-  if (!userIds.length) {
-    list.innerHTML = `<div style="text-align:center;padding:40px;">
-      <div style="font-size:40px;margin-bottom:12px;">${type === 'following' ? '🔭' : '👥'}</div>
-      <div style="font-size:15px;font-weight:700;margin-bottom:6px;">${type === 'following' ? 'Нет подписок' : 'Нет подписчиков'}</div>
-      <div style="font-size:13px;color:var(--text2);">${type === 'following' ? 'Подпишись на участников из рейтинга' : 'Пока никто не подписался'}</div>
-    </div>`;
-    return;
-  }
-
-  const { data: users } = await db
-    .from('users')
-    .select('id, name, username, photo_url, points, correct, total')
-    .in('id', userIds);
-
-  if (!users || !users.length) { list.innerHTML = ''; return; }
-
-  list.innerHTML = '';
-  users.forEach(u => {
-    const accuracy = u.total > 0 ? Math.round(u.correct / u.total * 100) : 0;
-    const isMe = u.id === currentUser.id;
-
-    const item = document.createElement('div');
-    item.className = 'follow-user-item';
-    item.onclick = () => {
-      closeFollowModal();
-      if (!isMe) openUserProfile(u.id);
-    };
-
-    const avatarContent = u.photo_url
-      ? `<img loading="lazy" src="${u.photo_url}" style="width:100%;height:100%;object-fit:cover;">`
-      : (u.name?.[0] || '😊');
-
-    item.innerHTML = `
-      <div class="follow-user-avatar">${avatarContent}</div>
-      <div class="follow-user-info">
-        <div class="follow-user-name">${isMe ? 'Ты' : u.name}</div>
-        <div class="follow-user-meta">${u.username ? '@' + u.username + ' · ' : ''}${accuracy}% точность · ${(u.points||0).toLocaleString('ru')} очков</div>
-      </div>
-      ${!isMe ? '<div style="color:var(--accent);font-size:18px;">›</div>' : ''}
-    `;
-    list.appendChild(item);
-  });
-}
-
-function closeFollowModal(e) {
-  if (e && e.target !== document.getElementById('follow-modal-overlay')) return;
-  document.getElementById('follow-modal-overlay').classList.remove('open');
-}
-
-// ============ QUESTION DETAIL + COMMENTS ============
-let _qdQuestionId = null;
-let _qdReplyToId = null;
-let _qdQuestion = null;
-
-async function openQuestionDetail(questionId) {
-  _qdQuestionId = questionId;
-  _qdReplyToId = null;
-
-  const overlay = document.getElementById('q-detail-overlay');
-  overlay.classList.add('open');
-
-  document.getElementById('qd-card').innerHTML = '<div style="text-align:center;padding:20px;color:var(--text2);">Загрузка...</div>';
-  document.getElementById('qd-comments-list').innerHTML = '<div style="text-align:center;padding:20px;color:var(--text2);">Загрузка...</div>';
-  document.getElementById('comment-textarea').value = '';
-  cancelReply();
-
-  let q = null;
-  try {
-    const res = await fetch('https://insayt.vercel.app/api/questions?id=' + questionId);
-    const payload = await res.json();
-    if (res.ok && payload.ok && payload.questions && payload.questions.length > 0) q = payload.questions[0];
-  } catch(e) { console.error('openQuestionDetail error:', e); }
-  if (!q) return;
-  _qdQuestion = q;
-
-  const total = (q.votes_yes || 0) + (q.votes_no || 0);
-  const pctYes = total > 0 ? Math.round((q.votes_yes || 0) / total * 100) : 50;
-  const pctNo = 100 - pctYes;
-  const isResolved = q.status === 'resolved_yes' || q.status === 'resolved_no';
-  const resolvedYes = q.status === 'resolved_yes';
-
-  document.getElementById('qd-topic').textContent = q.topic;
-  document.getElementById('qd-votes-count').textContent = `👥 ${total}`;
-
-  document.getElementById('qd-card').innerHTML = `
-    <div style="font-size:18px;font-weight:800;line-height:1.4;margin-bottom:16px;">${q.text}</div>
-    ${isResolved ? `
-      <div style="padding:12px 14px;border-radius:12px;background:${resolvedYes?'rgba(10,191,126,0.1)':'rgba(240,84,84,0.1)'};border:1.5px solid ${resolvedYes?'rgba(10,191,126,0.3)':'rgba(240,84,84,0.3)'};display:flex;align-items:center;gap:10px;margin-bottom:14px;">
-        <div style="font-size:20px;">${resolvedYes?'✅':'❌'}</div>
-        <div>
-          <div style="font-size:13px;font-weight:800;color:${resolvedYes?'var(--green)':'var(--red)'};">${resolvedYes?'Событие случилось!':'Событие не случилось'}</div>
-          <div style="font-size:11px;color:var(--text2);margin-top:2px;">Правильный ответ: ${resolvedYes?q.option_yes:q.option_no}</div>
-        </div>
-      </div>` : ''}
-    <div style="height:6px;background:var(--surface2);border-radius:6px;margin-bottom:8px;overflow:hidden;">
-      <div style="height:100%;width:${pctYes}%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:6px;"></div>
-    </div>
-    <div style="display:flex;justify-content:space-between;margin-bottom:${isResolved?'0':'14px'};font-size:12px;font-weight:700;">
-      <span style="color:var(--green);">✓ ${q.option_yes} — ${pctYes}%</span>
-      <span style="color:var(--red);">✗ ${q.option_no} — ${pctNo}%</span>
-    </div>
-    ${!isResolved ? `
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;" id="qd-vote-btns">
-      <button onclick="voteFromDetail('yes')" style="padding:12px;background:rgba(10,191,126,0.1);color:var(--green);border:1.5px solid rgba(10,191,126,0.3);border-radius:12px;font-family:Manrope,sans-serif;font-size:14px;font-weight:800;cursor:pointer;">✓ ${q.option_yes}</button>
-      <button onclick="voteFromDetail('no')" style="padding:12px;background:rgba(240,84,84,0.1);color:var(--red);border:1.5px solid rgba(240,84,84,0.3);border-radius:12px;font-family:Manrope,sans-serif;font-size:14px;font-weight:800;cursor:pointer;">✗ ${q.option_no}</button>
-    </div>` : ''}
-  `;
-
-  if (!isResolved && currentUser.id && db) {
-    const { data: myVote } = await db.from('votes').select('choice').eq('user_id', currentUser.id).eq('question_id', questionId).maybeSingle();
-    if (myVote) {
-      const btns = document.getElementById('qd-vote-btns');
-      if (btns) btns.innerHTML = `<div style="text-align:center;padding:10px;color:var(--accent2);font-weight:700;font-size:13px;grid-column:1/-1;">⏳ Твой прогноз: ${myVote.choice==='yes'?q.option_yes:q.option_no}</div>`;
-    }
-  }
-
-  await loadComments();
-}
-
 async function voteFromDetail(choice) {
-  const q = _qdQuestion;
+  var q = _qdQuestion;
   if (!q || !window.Telegram || !window.Telegram.WebApp || !window.Telegram.WebApp.initData) return;
 
-  const btns = document.getElementById('qd-vote-btns');
-  if (btns) btns.style.opacity = '0.5';
+  // Защита от двойного голосования
+  if (_isVotingDetail) return;
+  _isVotingDetail = true;
+
+  // Блокируем кнопки детального экрана
+  var btns = document.getElementById('qd-vote-btns');
+  var detailBtnYes = btns ? btns.querySelector('button:first-child') : null;
+  var detailBtnNo  = btns ? btns.querySelector('button:last-child')  : null;
+  if (detailBtnYes) detailBtnYes.disabled = true;
+  if (detailBtnNo)  detailBtnNo.disabled  = true;
+  if (btns) btns.style.opacity = '0.6';
 
   try {
-    const res = await fetch('https://insayt.vercel.app/api/vote', {
+    var res = await fetch('https://insayt.vercel.app/api/vote', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -2885,53 +2551,61 @@ async function voteFromDetail(choice) {
         vote: choice
       })
     });
+    var data = await res.json();
 
-    const data = await res.json();
-
-    if (!res.ok || !data.ok) {
-      showToast('Ошибка: ' + (data.error || 'Не удалось проголосовать'));
+    if (res.status === 429 || data.error === 'rate_limited') {
+      showToast('\u23f3 \u041f\u043e\u0434\u043e\u0436\u0434\u0438 \u0441\u0435\u043a\u0443\u043d\u0434\u0443...');
       if (btns) btns.style.opacity = '1';
+      if (detailBtnYes) detailBtnYes.disabled = false;
+      if (detailBtnNo)  detailBtnNo.disabled  = false;
       return;
     }
 
     if (data.duplicate) {
-      showToast('Ты уже голосовал!');
-      if (btns) btns.style.opacity = '1';
-      openQuestionDetail(q.id);
+      showToast('\u0422\u044b \u0443\u0436\u0435 \u0433\u043e\u043b\u043e\u0441\u043e\u0432\u0430\u043b!');
+      // Обновляем оба экрана если есть данные
+      if (data.question_after) {
+        updateDetailVoteUI(data.question_after, choice);
+        updateFeedCardVoteUI(q.id, data.question_after, choice);
+      } else {
+        // Нет данных — просто стабилизируем UI
+        if (btns) btns.style.opacity = '1';
+        if (detailBtnYes) detailBtnYes.disabled = false;
+        if (detailBtnNo)  detailBtnNo.disabled  = false;
+      }
       return;
     }
 
-    const feedCard = document.getElementById('q-' + q.id);
-    if (feedCard) {
-      feedCard.classList.add('voted');
-      const fresh = data.question_after || null;
-      if (fresh) {
-        const total = fresh.votes_yes + fresh.votes_no;
-        const pctYes = total > 0 ? Math.round(fresh.votes_yes / total * 100) : 50;
-        const pctNo = 100 - pctYes;
-
-        const bigYes = feedCard.querySelector('[data-pct="yes"]');
-        const bigNo = feedCard.querySelector('[data-pct="no"]');
-        if (bigYes) bigYes.textContent = pctYes + '%';
-        if (bigNo) bigNo.textContent = pctNo + '%';
-
-        const barEl = feedCard.querySelector('[data-bar="yes"]');
-        if (barEl) barEl.style.width = pctYes + '%';
-
-        const votesEl = feedCard.querySelector('[data-votes]');
-        if (votesEl) votesEl.innerHTML = '<span class="live-dot"></span><span style="font-size:12px;color:var(--text2);">' + total + ' голосов</span>';
-      }
+    if (!res.ok || !data.ok) {
+      showToast('\u274c ' + (data.error === 'invalid_auth' ? '\u041e\u0442\u043a\u0440\u043e\u0439 \u0447\u0435\u0440\u0435\u0437 Telegram!' : '\u041e\u0448\u0438\u0431\u043a\u0430 \u0433\u043e\u043b\u043e\u0441\u043e\u0432\u0430\u043d\u0438\u044f'));
+      if (btns) btns.style.opacity = '1';
+      if (detailBtnYes) detailBtnYes.disabled = false;
+      if (detailBtnNo)  detailBtnNo.disabled  = false;
+      return;
     }
 
-    showToast('✅ Прогноз принят! +20 очков');
-    await loadQuestions();
-    openQuestionDetail(q.id);
-  } catch (e) {
+    if (!data.question_after) {
+      console.error('voteFromDetail: no question_after');
+      showToast('\u2705 \u041f\u0440\u043e\u0433\u043d\u043e\u0437 \u043f\u0440\u0438\u043d\u044f\u0442!');
+      return;
+    }
+
+    // Успех — обновляем оба экрана локально, без перезагрузки ленты
+    updateDetailVoteUI(data.question_after, choice);
+    updateFeedCardVoteUI(q.id, data.question_after, choice);
+    showToast('\u2705 \u041f\u0440\u043e\u0433\u043d\u043e\u0437 \u043f\u0440\u0438\u043d\u044f\u0442!');
+
+  } catch(e) {
     console.error('voteFromDetail error:', e);
-    showToast('Ошибка сети');
+    showToast('\u274c \u041e\u0448\u0438\u0431\u043a\u0430 \u0441\u0435\u0442\u0438');
     if (btns) btns.style.opacity = '1';
+    if (detailBtnYes) detailBtnYes.disabled = false;
+    if (detailBtnNo)  detailBtnNo.disabled  = false;
+  } finally {
+    _isVotingDetail = false;
   }
 }
+
 
 function closeQuestionDetail() {
   document.getElementById('q-detail-overlay').classList.remove('open');
