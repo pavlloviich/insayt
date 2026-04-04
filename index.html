@@ -1563,6 +1563,7 @@
         oninput="updatePreview(); updateCharCount(this, 'q-chars', 120)"
         style="width:100%; background:var(--surface2); border:1.5px solid var(--border); border-radius:14px; padding:14px; font-family:'Manrope',sans-serif; font-size:15px; font-weight:600; color:var(--text); outline:none; resize:none; min-height:90px; line-height:1.5; box-sizing:border-box;"></textarea>
       <div id="q-chars" style="font-size:11px; color:var(--text2); text-align:right; margin-top:6px;">0 / 120</div>
+      <div id="err-text" style="font-size:12px;color:var(--red);margin-top:4px;display:none;"></div>
     </div>
     <div style="background:var(--surface); border:1px solid var(--border); border-radius:20px; padding:18px; box-shadow:var(--shadow);">
       <div class="section-title" style="padding:0 0 12px;">🗳 Варианты ответа</div>
@@ -1572,11 +1573,13 @@
           <input id="ans-yes" value="Да" placeholder="Вариант ДА" oninput="updatePreview()"
             style="flex:1; background:var(--surface2); border:1.5px solid var(--border); border-radius:12px; padding:12px 14px; font-family:'Manrope',sans-serif; font-size:14px; font-weight:700; color:var(--text); outline:none;">
         </div>
+        <div id="err-yes" style="font-size:12px;color:var(--red);margin-top:2px;padding-left:50px;display:none;"></div>
         <div style="display:flex; align-items:center; gap:10px;">
           <div style="width:40px; height:40px; border-radius:50%; background:rgba(240,84,84,0.12); color:var(--red); display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:800; flex-shrink:0;">НЕТ</div>
           <input id="ans-no" value="Нет" placeholder="Вариант НЕТ" oninput="updatePreview()"
             style="flex:1; background:var(--surface2); border:1.5px solid var(--border); border-radius:12px; padding:12px 14px; font-family:'Manrope',sans-serif; font-size:14px; font-weight:700; color:var(--text); outline:none;">
         </div>
+        <div id="err-no" style="font-size:12px;color:var(--red);margin-top:2px;padding-left:50px;display:none;"></div>
       </div>
     </div>
     <div style="background:var(--surface); border:1px solid var(--border); border-radius:20px; padding:18px; box-shadow:var(--shadow);">
@@ -1587,6 +1590,7 @@
         <div class="topic-select-chip" onclick="selectTopic(this)">💻 Технологии</div>
         <div class="topic-select-chip" onclick="selectTopic(this)">💰 Экономика</div>
       </div>
+      <div id="err-topic" style="font-size:12px;color:var(--red);margin-top:6px;display:none;"></div>
     </div>
     <div style="background:var(--surface); border:1px solid var(--border); border-radius:20px; padding:18px; box-shadow:var(--shadow);">
       <div class="section-title" style="padding:0 0 10px;">📅 Дата закрытия</div>
@@ -1594,6 +1598,7 @@
         style="width:100%; background:var(--surface2); border:1.5px solid var(--border); border-radius:12px; padding:12px 14px; font-family:'Manrope',sans-serif; font-size:14px; font-weight:600; color:var(--text); outline:none; box-sizing:border-box;"
         oninput="clampDate(this)">
       <div style="font-size:11px; color:var(--text2); margin-top:5px;">Максимум 45 дней от сегодня</div>
+      <div id="err-date" style="font-size:12px;color:var(--red);margin-top:4px;display:none;"></div>
     </div>
     <div style="background:var(--surface); border:1.5px dashed rgba(61,90,241,0.25); border-radius:20px; padding:18px; box-shadow:var(--shadow);">
       <div class="section-title" style="padding:0 0 12px;">👁 Предпросмотр</div>
@@ -2111,7 +2116,7 @@ async function loadVotesAndComments(data) {
       if (!card) return;
       const footer = card.querySelector('.q-card-footer-bar span');
       if (footer) {
-        const count = countMap[id] || 0;
+        var count = countMap[id] || 0;
         footer.innerHTML = footer.innerHTML.replace(/💬 \d+/, '💬 ' + count);
       }
     });
@@ -2331,12 +2336,14 @@ async function voteQuestion(questionId, choice, btn) {
 
     const data = await res.json();
 
-    if (res.status === 429 || data.error === 'rate_limited') { showToast('⏳ Подожди секунду...'); btn.disabled = false; return; }
+    if (res.status === 429 || data.error === 'rate_limited') {
+      showToast('⏳ Подожди секунду...');
+      btn.disabled = false; return;
+    }
     if (!res.ok || !data.ok) {
       if (data.error === 'invalid_auth') showToast('Открой через Telegram!');
       else showToast('Ошибка: ' + (data.error || 'Не удалось проголосовать'));
-      btn.disabled = false;
-      return;
+      btn.disabled = false; return;
     }
 
     if (data.duplicate) {
@@ -2555,12 +2562,20 @@ function renderRating(users, total, mode = 'overall') {
 }
 
 // Сохраняем вопрос в базу
-async function saveQuestion() {
-  // Deprecated — вопросы теперь создаются через api/create-question
-  console.warn('saveQuestion is deprecated');
-  return null;
+async function saveQuestion(text, optYes, optNo, topic, closesAt) {
+  if (!currentUser.id) return null;
+  const { data, error } = await db.from('questions').insert({
+    author_id: currentUser.id,
+    text: text,
+    option_yes: optYes,
+    option_no: optNo,
+    topic: topic,
+    closes_at: closesAt || null,
+    status: 'active'
+  }).select().single();
+  if (error) { console.error('saveQuestion error:', error); return null; }
+  return data;
 }
-
 
 // Применяем данные пользователя к интерфейсу после загрузки
 // ─── THEME SYSTEM ─────────────────────────────────────────────────────────────
@@ -2740,19 +2755,10 @@ async function openQuestionDetail(questionId) {
 
   let q = null;
   try {
-    const res = await fetch('https://insayt.vercel.app/api/feed', { cache: 'no-store' });
+    const res = await fetch('https://insayt.vercel.app/api/questions?id=' + questionId);
     const payload = await res.json();
-    if (res.ok && payload.ok && Array.isArray(payload.questions)) {
-      q = payload.questions.find(item => item.id === questionId) || null;
-    }
-  } catch (e) {
-    console.error('openQuestionDetail feed error:', e);
-  }
-
-  if (!q && db) {
-    const fallback = await db.from('questions').select('*').eq('id', questionId).single();
-    q = fallback.data || null;
-  }
+    if (res.ok && payload.ok && payload.questions && payload.questions.length > 0) q = payload.questions[0];
+  } catch(e) { console.error('openQuestionDetail error:', e); }
   if (!q) return;
   _qdQuestion = q;
 
@@ -2973,18 +2979,18 @@ function cancelReply() {
 }
 
 async function submitComment() {
-  if (!window.Telegram?.WebApp?.initData) { showToast('Открой через Telegram!'); return; }
-  const text = document.getElementById('comment-textarea').value.trim();
+  if (!window.Telegram || !window.Telegram.WebApp || !window.Telegram.WebApp.initData) { showToast('Открой через Telegram!'); return; }
+  var text = document.getElementById('comment-textarea').value.trim();
   if (!text) return;
   if (text.length > 500) { showToast('⚠️ Максимум 500 символов'); return; }
-  const btn = document.querySelector('.comment-send-btn');
+  var btn = document.querySelector('.comment-send-btn');
   if (btn) btn.disabled = true;
   try {
-    const res = await fetch('https://insayt.vercel.app/api/comment', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ initData: window.Telegram.WebApp.initData, question_id: _qdQuestionId, text, parent_id: _qdReplyToId || null })
+    var res = await fetch('https://insayt.vercel.app/api/comment', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({initData: window.Telegram.WebApp.initData, question_id: _qdQuestionId, text: text, parent_id: _qdReplyToId || null})
     });
-    const data = await res.json();
+    var data = await res.json();
     if (res.status === 429) { showToast('⏳ ' + (data.message || 'Лимит комментариев')); return; }
     if (!data.ok) { showToast('❌ ' + (data.error || 'Ошибка')); return; }
     document.getElementById('comment-textarea').value = '';
@@ -3317,164 +3323,204 @@ function selectTopic(el) {
   updatePreview();
 }
 
+// Показ/скрытие inline ошибки
+function setFieldError(id, msg) {
+  var el = document.getElementById(id);
+  if (!el) return;
+  if (msg) { el.textContent = msg; el.style.display = 'block'; }
+  else { el.textContent = ''; el.style.display = 'none'; }
+}
+
+// Валидация формы создания вопроса
+function validateQuestionForm() {
+  var text = (document.getElementById('q-text') ? document.getElementById('q-text').value : '').trim();
+  var yes = (document.getElementById('ans-yes') ? document.getElementById('ans-yes').value : '').trim();
+  var no = (document.getElementById('ans-no') ? document.getElementById('ans-no').value : '').trim();
+  var topicEl = document.querySelector('#topic-grid .topic-select-chip.active');
+  var dateVal = document.getElementById('q-date') ? document.getElementById('q-date').value : '';
+  var errors = {};
+
+  if (!text) errors.text = 'Введи вопрос';
+  else if (text.length < 10) errors.text = 'Минимум 10 символов (' + text.length + '/10)';
+  else if (text.length > 120) errors.text = 'Максимум 120 символов';
+
+  if (!yes) errors.option_yes = 'Заполни вариант ДА';
+  if (!no) errors.option_no = 'Заполни вариант НЕТ';
+  if (!topicEl) errors.topic = 'Выбери тему';
+
+  if (dateVal) {
+    var d = new Date(dateVal);
+    var now = new Date();
+    now.setHours(0,0,0,0);
+    var max = new Date(now.getTime() + 45 * 24 * 60 * 60 * 1000);
+    if (isNaN(d.getTime()) || d < now) errors.closes_at = 'Дата должна быть в будущем';
+    else if (d > max) errors.closes_at = 'Максимум 45 дней';
+  }
+
+  return { ok: Object.keys(errors).length === 0, errors: errors };
+}
+
 function updatePreview() {
-  const qEl = document.getElementById('q-text');
-  const yesEl = document.getElementById('ans-yes');
-  const noEl = document.getElementById('ans-no');
+  var qEl = document.getElementById('q-text');
+  var yesEl = document.getElementById('ans-yes');
+  var noEl = document.getElementById('ans-no');
   if (!qEl) return;
-  const q = qEl.value.trim();
-  const yes = yesEl ? yesEl.value.trim() : 'Да';
-  const no = noEl ? noEl.value.trim() : 'Нет';
-  const topicSelected = !!document.querySelector('#topic-grid .topic-select-chip.active');
-  const pq = document.getElementById('preview-q-text');
-  const py = document.getElementById('preview-yes');
-  const pn = document.getElementById('preview-no');
+  var q = qEl.value.trim();
+  var yes = yesEl ? yesEl.value.trim() : 'Да';
+  var no = noEl ? noEl.value.trim() : 'Нет';
+  var pq = document.getElementById('preview-q-text');
+  var py = document.getElementById('preview-yes');
+  var pn = document.getElementById('preview-no');
   if (pq) pq.textContent = q || 'Введи вопрос выше...';
   if (py) py.textContent = '✓ ' + (yes || 'Да');
   if (pn) pn.textContent = '✗ ' + (no || 'Нет');
-  const valid = q.length >= 10 && yes.length > 0 && no.length > 0 && topicSelected;
-  const btn = document.getElementById('create-submit-btn');
+
+  // Обновляем inline ошибки в реальном времени
+  var result = validateQuestionForm();
+  setFieldError('err-text', result.errors.text || null);
+  setFieldError('err-yes', result.errors.option_yes || null);
+  setFieldError('err-no', result.errors.option_no || null);
+  setFieldError('err-topic', result.errors.topic || null);
+  setFieldError('err-date', result.errors.closes_at || null);
+
+  // Кнопка активна только если форма валидна
+  var btn = document.getElementById('create-submit-btn');
+  if (btn && !btn._submitting) {
+    btn.disabled = !result.ok;
+    btn.style.opacity = result.ok ? '1' : '0.4';
+    btn.style.cursor = result.ok ? 'pointer' : 'not-allowed';
+  }
+}
+
+function updateCharCount(el, countId, max) {
+  var count = el.value.length;
+  var el2 = document.getElementById(countId);
+  if (!el2) return;
+  el2.textContent = count + ' / ' + max;
+  el2.style.color = count > max * 0.85 ? 'var(--red)' : 'var(--text2)';
+}
+
+function resetCreateForm() {
+  document.getElementById('q-text').value = '';
+  document.getElementById('q-chars').textContent = '0 / 120';
+  document.getElementById('ans-yes').value = 'Да';
+  document.getElementById('ans-no').value = 'Нет';
+  document.getElementById('preview-q-text').textContent = 'Введи вопрос выше...';
+  document.getElementById('preview-yes').textContent = '✓ Да';
+  document.getElementById('preview-no').textContent = '✗ Нет';
+  document.querySelectorAll('#topic-grid .topic-select-chip').forEach(function(c) { c.classList.remove('active'); });
+  initDateInput();
+  ['err-text','err-yes','err-no','err-topic','err-date'].forEach(function(id) { setFieldError(id, null); });
+  var btn = document.getElementById('create-submit-btn');
   if (btn) {
+    btn._submitting = false;
+    btn.disabled = true;
+    btn.style.opacity = '0.4';
+    btn.style.cursor = 'not-allowed';
+    btn.textContent = 'Опубликовать вопрос →';
+  }
+}
+
+// Маппинг ошибок бэкенда
+var BACKEND_ERRORS = {
+  'invalid_text': 'Вопрос должен быть от 10 до 120 символов',
+  'invalid_option_yes': 'Заполни вариант ДА',
+  'invalid_option_no': 'Заполни вариант НЕТ',
+  'invalid_topic': 'Выбери тему',
+  'invalid_closes_at': 'Проверь дату закрытия',
+  'question_limit_reached': 'Лимит: 3 вопроса за 24 часа',
+  'invalid_auth': 'Открой приложение через Telegram',
+  'db_error': 'Не удалось создать вопрос'
+};
+
+async function submitQuestion() {
+  var result = validateQuestionForm();
+  if (!result.ok) {
+    setFieldError('err-text', result.errors.text || null);
+    setFieldError('err-yes', result.errors.option_yes || null);
+    setFieldError('err-no', result.errors.option_no || null);
+    setFieldError('err-topic', result.errors.topic || null);
+    setFieldError('err-date', result.errors.closes_at || null);
+    return;
+  }
+
+  if (!window.Telegram || !window.Telegram.WebApp || !window.Telegram.WebApp.initData) {
+    showToast('Открой приложение через Telegram');
+    return;
+  }
+
+  var q = document.getElementById('q-text').value.trim();
+  var yes = document.getElementById('ans-yes').value.trim();
+  var no = document.getElementById('ans-no').value.trim();
+  var topicEl = document.querySelector('#topic-grid .topic-select-chip.active');
+  var topic = topicEl ? topicEl.textContent.trim() : '';
+  var dateVal = document.getElementById('q-date').value;
+  var closesAt = dateVal ? new Date(dateVal).toISOString() : null;
+
+  var btn = document.getElementById('create-submit-btn');
+  if (btn._submitting) return; // предотвращаем двойной сабмит
+  btn._submitting = true;
+  btn.textContent = 'Публикуем...';
+  btn.disabled = true;
+  btn.style.opacity = '0.7';
+
+  try {
+    var res = await fetch('https://insayt.vercel.app/api/create-question', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        initData: window.Telegram.WebApp.initData,
+        text: q, option_yes: yes, option_no: no, topic: topic, closes_at: closesAt
+      })
+    });
+
+    var data = await res.json();
+
+    if (!data.ok) {
+      var msg = BACKEND_ERRORS[data.error] || data.message || 'Ошибка создания';
+      // Полевые ошибки — показываем inline
+      if (data.error === 'invalid_text') setFieldError('err-text', msg);
+      else if (data.error === 'invalid_option_yes') setFieldError('err-yes', msg);
+      else if (data.error === 'invalid_option_no') setFieldError('err-no', msg);
+      else if (data.error === 'invalid_topic') setFieldError('err-topic', msg);
+      else if (data.error === 'invalid_closes_at') setFieldError('err-date', msg);
+      else showToast('❌ ' + msg);
+      return;
+    }
+
+    // Только реальный успех
+    showToast('🎯 Вопрос создан!');
+    resetCreateForm();
+    showScreen('feed');
+    await loadQuestions();
+    // Обновляем профиль если он был загружен
+    if (typeof loadProfile === 'function') {
+      setTimeout(function() { loadProfile(); }, 500);
+    }
+
+  } catch(e) {
+    console.error('submitQuestion error:', e);
+    showToast('❌ Ошибка сети, попробуй ещё раз');
+  } finally {
+    btn._submitting = false;
+    // Восстанавливаем кнопку согласно текущей валидности формы
+    var valid = validateQuestionForm().ok;
+    btn.textContent = 'Опубликовать вопрос →';
     btn.disabled = !valid;
     btn.style.opacity = valid ? '1' : '0.4';
     btn.style.cursor = valid ? 'pointer' : 'not-allowed';
   }
 }
 
-function updateCharCount(el, countId, max) {
-  const count = el.value.length;
-  const el2 = document.getElementById(countId);
-  if (!el2) return;
-  el2.textContent = count + ' / ' + max;
-  el2.style.color = count > max * 0.85 ? 'var(--red)' : 'var(--text2)';
-}
 
-async function submitQuestion() {
-  if (!window.Telegram?.WebApp?.initData) {
-    showToast('Открой через Telegram!');
-    return;
-  }
-
-  const q = document.getElementById('q-text').value.trim();
-  const yes = document.getElementById('ans-yes').value.trim();
-  const no = document.getElementById('ans-no').value.trim();
-  const topicEl = document.querySelector('#topic-grid .topic-select-chip.active');
-  const topic = topicEl ? topicEl.textContent.trim() : '';
-  const dateVal = document.getElementById('q-date').value;
-  const closesAt = dateVal ? new Date(dateVal).toISOString() : null;
-
-  const btn = document.getElementById('create-submit-btn');
-  btn.textContent = 'Публикуем...';
-  btn.disabled = true;
-
-  try {
-    const res = await fetch('https://insayt.vercel.app/api/create-question', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        initData: window.Telegram.WebApp.initData,
-        text: q,
-        option_yes: yes,
-        option_no: no,
-        topic: topic,
-        closes_at: closesAt
-      })
-    });
-
-    const data = await res.json();
-
-    if (res.status === 429) {
-      showToast('⛔ ' + (data.message || 'Лимит 3 вопроса в сутки'));
-      return;
-    }
-
-    if (!data.ok) {
-      showToast('❌ ' + (data.message || data.error || 'Ошибка создания'));
-      return;
-    }
-
-    // Успех — только после реального сохранения в БД
-    showToast('🎯 Вопрос создан!');
-
-    // Сброс формы
-    document.getElementById('q-text').value = '';
-    document.getElementById('q-chars').textContent = '0 / 120';
-    document.getElementById('ans-yes').value = 'Да';
-    document.getElementById('ans-no').value = 'Нет';
-    document.getElementById('preview-q-text').textContent = 'Введи вопрос выше...';
-    document.getElementById('preview-yes').textContent = '✓ Да';
-    document.getElementById('preview-no').textContent = '✗ Нет';
-    document.querySelectorAll('#topic-grid .topic-select-chip').forEach(c => c.classList.remove('active'));
-
-    showScreen('feed');
-    await loadQuestions();
-
-  } catch(e) {
-    console.error('submitQuestion error:', e);
-    showToast('❌ Ошибка сети');
-  } finally {
-    btn.textContent = 'Опубликовать вопрос →';
-    btn.disabled = false;
-    btn.style.opacity = '0.4';
-  }
-}
-
-
-function addToMyQuestions(q, yes, no, topic) {
-  const list = document.getElementById('my-questions-list');
-  if (!list) return;
-  const item = document.createElement('div');
-  item.style.cssText = 'background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:16px; box-shadow:var(--shadow);';
-  item.innerHTML = `
-    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
-      <div style="font-size:10px; font-weight:700; padding:3px 8px; border-radius:6px; background:rgba(61,90,241,0.1); color:var(--accent);">${topic}</div>
-      <div style="font-size:11px; color:var(--text2);">👥 1 голос</div>
-    </div>
-    <div style="font-size:14px; font-weight:700; color:var(--text); margin-bottom:10px; line-height:1.4;">${q}</div>
-    <div style="display:flex; justify-content:space-between; align-items:center;">
-      <div style="font-size:12px; color:var(--text2); font-weight:600;">${yes} 50% · ${no} 50%</div>
-      <div style="font-size:11px; color:var(--text2); background:var(--surface2); padding:4px 10px; border-radius:8px;">На модерации</div>
-    </div>
-  `;
-  list.insertBefore(item, list.firstChild);
-}
+// addToMyQuestions — deprecated, removed
 
 function vote(id, choice) {
   const btn = event && event.target ? event.target : null;
   voteQuestion(id, choice, btn || { disabled: false });
 }
 
-function addQuestionToFeed(q, yes, no, topic) {
-  const feed = document.querySelector('.feed');
-  const id = 'q' + Date.now();
-  const card = document.createElement('div');
-  card.className = 'q-card';
-  card.id = id;
-  card.innerHTML = `
-    <div class="q-meta">
-      <div class="q-topic economy">${topic}</div>
-      <div class="q-badge">✨ Твой вопрос</div>
-    </div>
-    <div class="q-text">${q}</div>
-    <div class="vote-section">
-      <div class="vote-bar-wrap"><div class="vote-bar-fill" style="width:50%"></div></div>
-      <div class="vote-labels">
-        <span class="vote-yes">ДА — 50%</span>
-        <span class="vote-no">НЕТ — 50%</span>
-      </div>
-      <div class="vote-buttons">
-        <button class="btn-yes" onclick="vote('${id}','yes')">✓ ${yes}</button>
-        <button class="btn-no" onclick="vote('${id}','no')">✗ ${no}</button>
-      </div>
-      <div class="voted-result pending">⏳ Твой прогноз принят</div>
-    </div>
-    <div class="q-footer">
-      <span class="q-voters">👥 1 участник</span>
-      <span class="q-deadline">📅 На модерации</span>
-    </div>
-  `;
-  feed.insertBefore(card, feed.firstChild);
-}
+// addQuestionToFeed — deprecated, removed
 
 function showScreen(name) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
@@ -3489,8 +3535,7 @@ function showScreen(name) {
 
 function filterTopic(el) {
   var allChips = document.querySelectorAll('.topic-chip');
-  var chips = Array.from(allChips);
-  var activeCount = chips.filter(function(c) { return c.classList.contains('active'); }).length;
+  var activeCount = Array.from(allChips).filter(function(c){return c.classList.contains('active');}).length;
   if (el.classList.contains('active') && activeCount === 1) return;
   el.classList.toggle('active');
   applyTopicFilter();
@@ -3530,6 +3575,26 @@ function initDateInput() {
   input.min = today.toISOString().split('T')[0];
   input.max = new Date(today.getTime() + 45 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 }
+
+// ─── SHARE ───────────────────────────────────────────────────────────
+function shareQuestion(questionId, questionText) {
+  var tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
+  var maxLen = 100;
+  var shortText = questionText && questionText.length > maxLen ? questionText.substring(0, maxLen) + '...' : (questionText || '');
+  var url = 'https://t.me/insayt_app_bot?start=q_' + questionId;
+  var shareText = '🔮 ' + shortText + '\n\nПроголосуй в ИНСАЙТ — кто угадает?';
+  if (tg && tg.openTelegramLink) {
+    tg.openTelegramLink('https://t.me/share/url?url=' + encodeURIComponent(url) + '&text=' + encodeURIComponent(shareText));
+  } else if (navigator.share) {
+    navigator.share({title:'ИНСАЙТ', text:shareText, url:url}).catch(function(){});
+  } else {
+    var d = document.createElement('textarea');
+    d.value = url; document.body.appendChild(d); d.select();
+    try { document.execCommand('copy'); showToast('📋 Ссылка скопирована!'); } catch(e) {}
+    document.body.removeChild(d);
+  }
+}
+// ─────────────────────────────────────────────────────────────────────
 
 function showToast(msg) {
   const t = document.getElementById('toast');
