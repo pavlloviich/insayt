@@ -170,7 +170,7 @@
   .topics-scroll {
     display: flex;
     gap: 8px;
-    padding: 0 20px 16px;
+    padding: 12px 20px 16px;
     overflow-x: auto;
     scrollbar-width: none;
   }
@@ -1435,7 +1435,6 @@
       <div class="stat-label">Прогнозов</div>
     </div>
   </div>
-  <div class="section-title">Темы</div>
   <div class="topics-scroll">
     <div class="topic-chip active" onclick="filterTopic(this)">🏛 Политика</div>
     <div class="topic-chip active" onclick="filterTopic(this)">₿ Крипта</div>
@@ -3503,15 +3502,14 @@ function showScreen(name) {
 }
 
 function filterTopic(el) {
-  const allChips = document.querySelectorAll('.topic-chip');
-  const activeCount = Array.from(allChips).filter(c => c.classList.contains('active')).length;
+  var allChips = document.querySelectorAll('.topic-chip');
+  var chips = Array.from(allChips);
+  var activeCount = chips.filter(function(c) { return c.classList.contains('active'); }).length;
 
+  // Последний активный — не снимаем
   if (el.classList.contains('active') && activeCount === 1) return;
 
   el.classList.toggle('active');
-
-  const nowActive = Array.from(allChips).filter(c => c.classList.contains('active')).length;
-  if (nowActive === 0) allChips.forEach(c => c.classList.add('active'));
 
   applyTopicFilter();
 }
